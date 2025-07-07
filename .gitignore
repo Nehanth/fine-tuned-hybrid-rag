@@ -1,0 +1,12 @@
+# Large data files
+data/processed_docs.jsonl
+embeddings/
+finetune/model/
+finetune/pairs.pkl
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/

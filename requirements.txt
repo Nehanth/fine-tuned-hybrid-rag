@@ -1,0 +1,6 @@
+datasets
+sentence-transformers
+scikit-learn
+numpy
+tqdm
+joblib
