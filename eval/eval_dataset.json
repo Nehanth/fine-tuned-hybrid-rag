@@ -1,165 +1,334 @@
 {
-  "name": "Synthetic Academic Paper Evaluation Dataset",
-  "description": "Evaluation dataset for testing fine-tuned academic paper retrieval. Based on real s2orc patterns with Medicine (43%), Computer Science (14%), Biology (13%), etc.",
-  "created_from": "s2orc_small processed_docs.jsonl analysis",
-  "total_queries": 20,
+  "name": "Real S2ORC Evaluation Dataset",
+  "description": "Document retrieval evaluation using real s2orc papers. Query = document title, goal = find full document.",
+  "num_queries": 10,
   "queries": [
     {
-      "id": 1,
-      "query": "Deep learning approaches for medical image segmentation in diagnostic imaging",
-      "field": "Medicine + Computer Science",
+      "query": "Stretch and Breakage of Wormlike Micelles under Uniaxial Strain",
+      "field": "Materials Science",
       "correct_doc": {
-        "title": "Deep Learning Approaches for Medical Image Segmentation in Diagnostic Imaging",
-        "abstract": "Recent advances in deep learning have revolutionized medical image analysis, particularly in segmentation tasks for diagnostic imaging. This comprehensive review examines convolutional neural networks, U-Net architectures, and transformer-based approaches for automated segmentation of medical images including CT scans, MRI, and X-rays. We analyze performance metrics across different anatomical structures and discuss clinical implementation challenges.",
-        "year": 2019,
-        "venue": "Medical Image Analysis",
-        "fields": ["Medicine", "Computer Science"]
+        "title": "Stretch and Breakage of Wormlike Micelles under Uniaxial Strain",
+        "text": "Stretch and Breakage of Wormlike Micelles under Uniaxial Strain: A Simulation Study and Comparison with Experimental Results. We use coarse-grained (CG) molecular dynamics simulations to determine the effect of uniaxial strain on the stress, scission stress, and scission energy of solutions of wormlike micelles of cetyltrimethylammonium chloride/sodium salicylate (NaSal). We find that the breaking stress, stretch modulus, and scission energy of the charged micelles are nonmonotonic functions of oppositely charged hydrotrope (NaSal) concentration. The method and results can be used to predict the effects of flow and mechanical stress on rates of micellar breakage, which is important in the rheology of wormlike micellar solutions.",
+        "year": 2018,
+        "venue": "Langmuir",
+        "fields": ["Materials Science", "Medicine"]
       },
       "distractor_docs": [
         {
-          "title": "Natural Language Processing for Clinical Documentation Analysis",
-          "abstract": "Electronic health records contain vast amounts of unstructured clinical text that could benefit from automated analysis. This study presents novel NLP techniques for extracting clinical insights from physician notes, discharge summaries, and patient records using transformer models and medical ontologies.",
-          "fields": ["Computer Science", "Medicine"]
-        },
-        {
-          "title": "Quantum Computing Applications in Cryptographic Security Protocols",
-          "abstract": "Quantum computing poses both opportunities and threats to current cryptographic systems. We present novel quantum algorithms for secure communication and analyze the implications for current encryption standards. Our findings suggest significant vulnerabilities in RSA and elliptic curve cryptography.",
-          "fields": ["Computer Science", "Physics"]
-        },
-        {
-          "title": "CRISPR-Cas9 Gene Editing for Treatment of Inherited Retinal Diseases",
-          "abstract": "Inherited retinal diseases affect millions worldwide and currently have limited treatment options. This research investigates CRISPR-Cas9 gene editing approaches for correcting mutations causing Leber congenital amaurosis and Stargardt disease. We demonstrate successful correction in patient-derived organoids.",
+          "title": "Protective Efficacy of Newcastle Disease Virus",
+          "text": "Protective Efficacy of Newcastle Disease Virus Expressing Soluble Trimeric Hemagglutinin against Highly Pathogenic H5N1 Influenza in Chickens and Mice Background Highly pathogenic avian influenza virus (HPAIV) causes a highly contagious often fatal disease in poultry, resulting in significant economic losses in the poultry industry.",
+          "year": 2012,
           "fields": ["Biology", "Medicine"]
+        },
+        {
+          "title": "Technologies for Detecting Falsified and Substandard Drugs",
+          "text": "Technologies for Detecting Falsified and Substandard Drugs in Low and Middle-Income Countries Falsified and substandard drugs are a global health problem, particularly in low- and middle-income countries (LMIC) that have weak pharmacovigilance and drug regulatory systems.",
+          "year": 2014,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "A syndrome of misinterpreting role changes as changes of person",
+          "text": "A syndrome of misinterpreting role changes as changes of person. A syndrome is described in three elderly women who all suffered from cerebral arteriosclerosis, and who in their dependent condition were looked after by their daughters.",
+          "year": 1984,
+          "fields": ["Psychology", "Medicine"]
         }
-      ]
+      ],
+      "correct_doc_index": 81
     },
     {
-      "id": 2,
-      "query": "COVID-19 vaccine effectiveness and safety profiles in elderly populations",
+      "query": "Swedish Volunteer Corps in Soviet-Finnish War 1939-1940",
+      "field": "Geography", 
+      "correct_doc": {
+        "title": "Swedish Volunteer Corps in Soviet-Finnish War 1939-1940",
+        "text": "Некоторые аспекты деятельности Шведского добровольческого корпуса в Советско-финляндской войне 1939-1940 годов This article discusses some aspects of the Swedish Volunteer Corps' creation and activities. The Swedish Volunteer Corps took part in the Soviet-Finnish War of 1939-1940 on Finland's side. Centuries of being part of the kingdom of Sweden is the reason for the close connection between Finland and Sweden.",
+        "year": 2015,
+        "fields": ["Geography"]
+      },
+      "distractor_docs": [
+        {
+          "title": "Reciprocity in welfare institutions and normative attitudes",
+          "text": "Reciprocity in welfare institutions and normative attitudes in EU member states The REMINDER project has received funding from the European Union's Horizon 2020 research and innovation programme.",
+          "year": 2019,
+          "fields": ["Political Science"]
+        },
+        {
+          "title": "The Legacy of Caregiving",
+          "text": "The Legacy of Caregiving This narrative describes a social worker's caregiving and end-of-life experiences with her mother, who had Alzheimer's disease.",
+          "year": 2008,
+          "fields": ["Psychology"]
+        },
+        {
+          "title": "The Barnett Experiment with a Rotating Solenoid Magnet",
+          "text": "The Barnett Experiment with a Rotating Solenoid Magnet This problem is based on an experiment by Barnett that was meant to address the question of whether the magnetic field lines of a solenoid magnet rotate when the magnet rotates about its axis.",
+          "year": 2008,
+          "fields": ["Physics"]
+        }
+      ],
+      "correct_doc_index": 35
+    },
+    {
+      "query": "A syndrome of misinterpreting role changes as changes of person",
+      "field": "Psychology",
+      "correct_doc": {
+        "title": "A syndrome of misinterpreting role changes as changes of person",
+        "text": "A syndrome of misinterpreting role changes as changes of person. A syndrome is described in three elderly women who all suffered from cerebral arteriosclerosis, and who in their dependent condition were looked after by their daughters. These women accepted their daughters as their daughters when carrying out directly caring tasks related to them, but spoke of them and addressed them as different women, with the same forenames as their daughters, when their daughters were engaged in other duties.",
+        "year": 1984,
+        "venue": "The British journal of psychiatry",
+        "fields": ["Psychology", "Medicine"]
+      },
+      "distractor_docs": [
+        {
+          "title": "Screening of second messengers in photocyte bioluminescence control",
+          "text": "Screening of second messengers involved in photocyte bioluminescence control of three ophiuroid species We investigated the effects of cyclic nucleotides (cGMP and cAMP) and inositol triphosphate/diacylglycerol pathways on the KCl-induced luminescence control.",
+          "year": 2003,
+          "fields": ["Biology", "Medicine"]
+        },
+        {
+          "title": "SSI: an open source platform for social signal interpretation",
+          "text": "SSI: an open source platform for social signal interpretation Automatic detection and interpretation of social signals carried by voice, gestures, mimics, etc. will play a key-role for next-generation interfaces.",
+          "year": 2014,
+          "fields": []
+        },
+        {
+          "title": "Anomalous diffusion of proteins due to molecular crowding",
+          "text": "Anomalous diffusion of proteins due to molecular crowding. We have studied the diffusion of tracer proteins in highly concentrated random-coil polymer and globular protein solutions imitating the crowded conditions encountered in cellular environments.",
+          "year": 2005,
+          "fields": ["Chemistry", "Medicine"]
+        }
+      ],
+      "correct_doc_index": 94
+    },
+    {
+      "query": "A Prospective Study of Anterior Segment Ocular Parameters in Anisometropia",
       "field": "Medicine",
       "correct_doc": {
-        "title": "COVID-19 Vaccine Effectiveness and Safety Profiles in Elderly Populations: A Systematic Review",
-        "abstract": "The COVID-19 pandemic disproportionately affected elderly populations, making vaccination crucial for this demographic. This systematic review analyzes effectiveness and safety data from major COVID-19 vaccines (mRNA and viral vector) in adults over 65 years. We examine immunogenicity, adverse events, and real-world effectiveness across multiple countries and vaccine platforms.",
-        "year": 2021,
-        "venue": "The Lancet",
+        "title": "A Prospective Study of Anterior Segment Ocular Parameters in Anisometropia",
+        "text": "A Prospective Study of Anterior Segment Ocular Parameters in Anisometropia Purpose The aim of this study was to investigate the differences in anterior segment ocular parameters in anisometropia >1 D. Methods This study included 202 eyes of 101 subjects ranging from 10 to 40 years of age with anisometropia of 1 D or more.",
+        "year": 2017,
+        "venue": "Korean journal of ophthalmology",
         "fields": ["Medicine"]
       },
       "distractor_docs": [
         {
-          "title": "Machine Learning Models for Predicting Hospital Readmission Risk",
-          "abstract": "Hospital readmissions represent a significant healthcare burden and quality indicator. We develop and validate machine learning models using electronic health record data to predict 30-day readmission risk. Our ensemble approach combining clinical variables and natural language processing achieves superior performance.",
-          "fields": ["Computer Science", "Medicine"]
+          "title": "Fast and exact direct illumination",
+          "text": "Fast and exact direct illumination Rendering high quality soft shadows from area light sources is necessary to increase the level of realism. Quality soft shadows are closely related to the visibility computation.",
+          "year": 2005,
+          "fields": ["Computer Science"]
         },
         {
-          "title": "Climate Change Impact on Agricultural Crop Yields in Sub-Saharan Africa",
-          "abstract": "Climate change poses severe threats to food security, particularly in Sub-Saharan Africa. This study analyzes temperature and precipitation trends over 30 years and their correlation with crop yields for major staples including maize, sorghum, and cassava. We project future yield scenarios under different climate models.",
-          "fields": ["Environmental Science", "Geography"]
+          "title": "Latitudinal differentiation in embryonic duration",
+          "text": "LATITUDINAL DIFFERENTIATION IN EMBRYONIC DURATION, EGG SIZE, AND NEWBORN SURVIVAL IN A HARPACTICOID COPEPOD We demonstrate significant genetically based differentiation in embryonic duration.",
+          "year": 1985,
+          "fields": ["Biology"]
         },
         {
-          "title": "Novel Biomaterials for Bone Tissue Engineering Applications",
-          "abstract": "Bone tissue engineering requires scaffolds that promote cell growth and integration. We present novel composite biomaterials combining hydroxyapatite nanoparticles with biodegradable polymers. In vitro and in vivo studies demonstrate enhanced osteoblast proliferation and new bone formation.",
-          "fields": ["Materials Science", "Medicine"]
+          "title": "Effects of annealing temperature on NiZnCo ferrite thin films",
+          "text": "Effects of annealing temperature on the structure and static magnetic properties of NiZnCo ferrite thin films The Ni 0.22 Zn 0.52 Co 0.03 Fe 2.23 O 4 ferrite thin films are deposited on Si substrate.",
+          "year": 2014,
+          "fields": ["Materials Science"]
         }
-      ]
+      ],
+      "correct_doc_index": 11
     },
     {
-      "id": 3,
-      "query": "Transformer architecture optimization for natural language understanding tasks",
+      "query": "Technologies for Detecting Falsified and Substandard Drugs",
+      "field": "Medicine",
+      "correct_doc": {
+        "title": "Technologies for Detecting Falsified and Substandard Drugs",
+        "text": "Technologies for Detecting Falsified and Substandard Drugs in Low and Middle-Income Countries Falsified and substandard drugs are a global health problem, particularly in low- and middle-income countries (LMIC) that have weak pharmacovigilance and drug regulatory systems. Poor quality medicines have important health consequences, including the potential for treatment failure, development of antimicrobial resistance, and serious adverse drug reactions.",
+        "year": 2014,
+        "venue": "PloS one",
+        "fields": ["Medicine"]
+      },
+      "distractor_docs": [
+        {
+          "title": "A Prospective Study of Anterior Segment Ocular Parameters",
+          "text": "A Prospective Study of Anterior Segment Ocular Parameters in Anisometropia Purpose The aim of this study was to investigate the differences in anterior segment ocular parameters in anisometropia >1 D.",
+          "year": 2017,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "Human intestinal spirochetosis: Analysis of symptoms",
+          "text": "Human intestinal spirochetosis: Analysis of the symptoms of 209 patients Objective. Colonization of the colorectal mucosa with spirochetes is very rare.",
+          "year": 2007,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "Nephrourectomy combined with transurethral Holmium-laser excision",
+          "text": "Nephrourectomy combined with transurethral Holmium-laser excision of distal ureteral segment for treatment of renal pelvic and ureteral tumors Objective To improve surgical technique in the treatment of renal pelvic and ureteral tumors.",
+          "year": 2009,
+          "fields": ["Medicine"]
+        }
+      ],
+      "correct_doc_index": 3,
+      "user_filters": {
+        "preferred_fields": ["Medicine"],
+        "preferred_venues": ["PloS one", "Nature Medicine"],
+        "preferred_years": [2010, 2020],
+        "boost_recent": true
+      }
+    },
+    {
+      "query": "Antiepileptics as mood stabilizers",
+      "field": "Psychology",
+      "correct_doc": {
+        "title": "Antiepileptics as mood stabilizers",
+        "text": "P01-198 - Antiepileptics as mood stabilizers The field of bipolar affective disorders research now immence methodological challenges, some of which have only recently become obvious. It has become more clear that bipolar affective disorder should be viewed longitudinally rather than in terms of individual episodes. Lithium was the gold standard of treatment for bipolar disorder, but a number of studies over the past several decades shown that many drugs with antiepileptic properties are effective in the treatment of some patients with bipolar affective disorder.",
+        "year": 2011,
+        "fields": ["Psychology"]
+      },
+      "distractor_docs": [
+        {
+          "title": "English Teaching Platform Based on Internet Technology",
+          "text": "Exploration on the Management Mode of English Teaching Platform Based on Internet Technology Personalization With the further integration of educational technology and subject teaching, various new teaching ideas and teaching methods have been deeply rooted in people's hearts.",
+          "year": 2019,
+          "fields": []
+        },
+        {
+          "title": "Technologies for Detecting Falsified and Substandard Drugs",
+          "text": "Technologies for Detecting Falsified and Substandard Drugs in Low and Middle-Income Countries Falsified and substandard drugs are a global health problem.",
+          "year": 2014,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "Sequential perceptual learning of letter identification",
+          "text": "Sequential perceptual learning of letter identification and uncrowding in normal peripheral vision: Effects of task, training order, and cholinergic enhancement Human adults with normal vision are capable of improving performance on visual tasks through repeated practice.",
+          "year": 2020,
+          "fields": ["Psychology", "Medicine"]
+        }
+      ],
+      "correct_doc_index": 64,
+      "user_filters": {
+        "preferred_fields": ["Psychology", "Medicine"],
+        "preferred_years": [2010, 2015],
+        "boost_recent": true
+      }
+    },
+    {
+      "query": "Drill target damage protection device for movement of ice floes",
+      "field": "Geology",
+      "correct_doc": {
+        "title": "Drill target damage protection device for movement of ice floes",
+        "text": "Drill target damage protection device for movement of ice floes FIELD: agriculture. SUBSTANCE: device is presented in the form of a protective barrier mounted on a bed along the perimeter of a drill target and supported by piles on the bed. The piles are designed in the form of a reinforced-concrete cone ballast anchor. EFFECT: more reliable protection of the off-shore targets used for economic activities against the impact of ice features.",
+        "year": 2012,
+        "fields": ["Geology"]
+      },
+      "distractor_docs": [
+        {
+          "title": "Gyrate atrophy of the choroid and retina",
+          "text": "Gyrate atrophy of the choroid and retina. Gyrate atrophy of the choroid and retina, which is often shortened to gyrate atrophy, is an inherited disorder characterized by progressive vision loss.",
+          "year": 1979,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "Options and issues for pregnant adolescents",
+          "text": "Options and issues for pregnant adolescents. Because of the increased rate of adolescent pregnancies, maternal-child nurses need to be aware of some of the special legal issues associated with pregnant adolescents.",
+          "year": 1988,
+          "fields": ["Medicine"]
+        },
+        {
+          "title": "A Collaborative Augmented Reality Networked Platform for Edutainment",
+          "text": "A Collaborative Augmented Reality Networked Platform for Edutainment This chapter presents a mobile software prototype for the educational purpose by using the Augmented Reality (AR) and data communication technology.",
+          "year": 2011,
+          "fields": ["Engineering"]
+        }
+      ],
+      "correct_doc_index": 25
+    },
+    {
+      "query": "Anomalous diffusion of proteins due to molecular crowding",
+      "field": "Chemistry",
+      "correct_doc": {
+        "title": "Anomalous diffusion of proteins due to molecular crowding",
+        "text": "Anomalous diffusion of proteins due to molecular crowding. We have studied the diffusion of tracer proteins in highly concentrated random-coil polymer and globular protein solutions imitating the crowded conditions encountered in cellular environments. Using fluorescence correlation spectroscopy, we measured the anomalous diffusion exponent alpha characterizing the dependence of the mean-square displacement of the tracer proteins on time. These observations indicate that protein diffusion in the cell cytoplasm and nucleus should be anomalous as well.",
+        "year": 2005,
+        "venue": "Biophysical journal",
+        "fields": ["Chemistry", "Medicine"]
+      },
+      "distractor_docs": [
+        {
+          "title": "Developmental biology: To be or not to be sperm?",
+          "text": "Developmental biology: To be or not to be sperm? I believe that the vulnerability of soil carbon to warming is one of the largest sources of uncertainty in the projection of future climate change.",
+          "year": 2009,
+          "fields": []
+        },
+        {
+          "title": "The Legacy of Caregiving",
+          "text": "The Legacy of Caregiving This narrative describes a social worker's caregiving and end-of-life experiences with her mother, who had Alzheimer's disease.",
+          "year": 2008,
+          "fields": ["Psychology"]
+        },
+        {
+          "title": "Physical and chemical sensors for medical instrumentation",
+          "text": "Physical and chemical sensors for medical instrumentation. The sensor represents one of the most important aspects of a biomedical instrument in that it is concerned with the interface between the instrument and the physiologic system being measured.",
+          "year": 1982,
+          "fields": ["Medicine"]
+        }
+      ],
+      "correct_doc_index": 69
+    },
+    {
+      "query": "Fast and exact direct illumination",
       "field": "Computer Science",
       "correct_doc": {
-        "title": "Transformer Architecture Optimization for Natural Language Understanding Tasks",
-        "abstract": "Transformer models have achieved state-of-the-art performance in natural language understanding, but computational efficiency remains a challenge. This paper presents novel optimization techniques including attention pruning, knowledge distillation, and dynamic inference to reduce model size and latency while maintaining performance on GLUE benchmarks.",
-        "year": 2020,
-        "venue": "Proceedings of EMNLP",
+        "title": "Fast and exact direct illumination",
+        "text": "Fast and exact direct illumination Rendering high quality soft shadows from area light sources is necessary to increase the level of realism. Quality soft shadows are closely related to the visibility computation. An accurate visibility information improves the shadows realism. However, this remains a challenging problem since even small visibility approximations can lead to unacceptable errors in a picture. We propose a new approach to this problem, based on an exact visibility pre-computation, done in the Plucker space.",
+        "year": 2005,
+        "venue": "International 2005 Computer Graphics",
         "fields": ["Computer Science"]
       },
       "distractor_docs": [
         {
-          "title": "Psycholinguistic Factors in Second Language Acquisition Among Adults",
-          "abstract": "Adult second language acquisition involves complex cognitive processes that differ from child language learning. This study examines working memory, attention, and motivation factors affecting L2 proficiency in adult learners. We find significant correlations between cognitive flexibility and grammatical accuracy.",
-          "fields": ["Psychology", "Linguistics"]
+          "title": "Swedish Volunteer Corps in Soviet-Finnish War",
+          "text": "Некоторые аспекты деятельности Шведского добровольческого корпуса в Советско-финляндской войне 1939-1940 годов This article discusses some aspects of the Swedish Volunteer Corps' creation and activities.",
+          "year": 2015,
+          "fields": ["Geography"]
         },
         {
-          "title": "Supramolecular Chemistry of Host-Guest Complexes in Drug Delivery",
-          "abstract": "Host-guest chemistry offers promising approaches for targeted drug delivery systems. We synthesize novel cyclodextrin derivatives and study their complexation with anticancer drugs. Molecular dynamics simulations and experimental binding studies reveal enhanced solubility and controlled release properties.",
-          "fields": ["Chemistry", "Medicine"]
+          "title": "Clinical or Industrial Pharmacy?",
+          "text": "Clinical or Industrial Pharmacy? Case Studies of Hospital Pharmacy Automation in Canada and France Automated medication dispensing systems for hospital pharmacies, heralded as an important means of reducing drug errors and improving labor productivity.",
+          "year": 1998,
+          "fields": ["Medicine"]
         },
         {
-          "title": "Cardiac Catheterization Outcomes in Patients with Chronic Kidney Disease",
-          "abstract": "Patients with chronic kidney disease face increased risks during cardiac catheterization due to contrast-induced nephropathy. This retrospective analysis of 5,000 patients examines procedural outcomes, complications, and protective strategies including hydration protocols and contrast agent selection.",
+          "title": "Automated measurement of ciliary beat frequency",
+          "text": "Automated measurement of ciliary beat frequency. Measurements of ciliary beat frequency using video images are dependent on observer interpretation. To obtain objective estimates of ciliary beat frequency from video-image sequences, a computer-based method was developed.",
+          "year": 1986,
+          "fields": ["Biology", "Medicine"]
+        }
+      ],
+      "correct_doc_index": 75
+    },
+    {
+      "query": "Study on the Impact of Filter Layer Permeability on Revetment",
+      "field": "Engineering",
+      "correct_doc": {
+        "title": "Study on the Impact of Filter Layer Permeability on Revetment",
+        "text": "Study on the Impact of Filter Layer Permeability on Revetment Top Layer Stability under Wave Action In the design of revetment engineering under wave action, to resist the wave action, the pattern of top layer-filter layer-core (subsoil) is often adopted. This paper is focused on a special filter layer with geotextile as its upper structure and coarse aggregate as its lower structure. The research shows that when the filter layer under the geotextile has high permeability and the geotextile's permeability gets poorer, the uplift force to geotextile and the top layer will be increased under wave action.",
+        "year": 2015,
+        "fields": ["Engineering"]
+      },
+      "distractor_docs": [
+        {
+          "title": "A Collaborative Augmented Reality Networked Platform",
+          "text": "A Collaborative Augmented Reality Networked Platform for Edutainment This chapter presents a mobile software prototype for the educational purpose by using the Augmented Reality (AR) and data communication technology.",
+          "year": 2011,
+          "fields": ["Engineering"]
+        },
+        {
+          "title": "Latitudinal differentiation in embryonic duration",
+          "text": "LATITUDINAL DIFFERENTIATION IN EMBRYONIC DURATION, EGG SIZE, AND NEWBORN SURVIVAL IN A HARPACTICOID COPEPOD We demonstrate significant genetically based differentiation in embryonic duration.",
+          "year": 1985,
+          "fields": ["Biology"]
+        },
+        {
+          "title": "Possible effects of normetabolites on opioids",
+          "text": "Possible effects of normetabolites on the subjective and reinforcing characteristics of opioids in animals and man. When an opioid capable of forming active metabolites is administered, the total pharmacology is the result of interactions of the opioid and such metabolites.",
+          "year": 1978,
           "fields": ["Medicine"]
         }
-      ]
-    },
-    {
-      "id": 4,
-      "query": "CRISPR gene editing mechanisms and off-target effects in mammalian cells",
-      "field": "Biology",
-      "correct_doc": {
-        "title": "CRISPR Gene Editing Mechanisms and Off-Target Effects in Mammalian Cells",
-        "abstract": "CRISPR-Cas9 has revolutionized gene editing but off-target effects remain a concern for therapeutic applications. This study comprehensively analyzes Cas9 binding specificity, DNA repair mechanisms, and unintended genomic modifications in human cell lines. We identify predictive factors for off-target events and propose improved guide RNA design strategies.",
-        "year": 2018,
-        "venue": "Nature Biotechnology",
-        "fields": ["Biology"]
-      },
-      "distractor_docs": [
-        {
-          "title": "Smartphone-Based Mental Health Interventions for Depression and Anxiety",
-          "abstract": "Mobile health applications offer scalable interventions for mental health conditions. This randomized controlled trial evaluates the effectiveness of a smartphone-based cognitive behavioral therapy app for treating depression and anxiety. Results show significant improvements in PHQ-9 and GAD-7 scores.",
-          "fields": ["Psychology", "Medicine"]
-        },
-        {
-          "title": "Quantum Dot Solar Cell Efficiency Enhancement Through Surface Passivation",
-          "abstract": "Quantum dot solar cells offer potential for next-generation photovoltaics but suffer from surface defects that limit efficiency. We demonstrate surface passivation techniques using organic ligands and inorganic shells that reduce charge recombination and improve power conversion efficiency to 16.2%.",
-          "fields": ["Materials Science", "Physics"]
-        },
-        {
-          "title": "Blockchain Technology for Supply Chain Transparency in Pharmaceutical Industry",
-          "abstract": "Pharmaceutical supply chains face challenges with counterfeit drugs and lack of transparency. This paper presents a blockchain-based solution for tracking drug provenance from manufacturing to patient delivery. Our prototype demonstrates immutable record keeping and real-time authenticity verification.",
-          "fields": ["Computer Science", "Economics"]
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "query": "Nanoparticle drug delivery systems for cancer chemotherapy",
-      "field": "Medicine + Materials Science",
-      "correct_doc": {
-        "title": "Nanoparticle Drug Delivery Systems for Cancer Chemotherapy: Design and Clinical Translation",
-        "abstract": "Conventional chemotherapy suffers from poor selectivity and severe side effects. Nanoparticle drug delivery systems offer targeted therapy approaches to improve therapeutic efficacy. This review examines liposomal, polymeric, and inorganic nanocarriers for anticancer drugs, analyzing their mechanisms, clinical trials, and regulatory challenges.",
-        "year": 2020,
-        "venue": "Nature Reviews Drug Discovery",
-        "fields": ["Medicine", "Materials Science"]
-      },
-      "distractor_docs": [
-        {
-          "title": "Social Media Influence on Political Opinion Formation During Election Cycles",
-          "abstract": "Social media platforms significantly impact political discourse and voter behavior. This longitudinal study analyzes Twitter and Facebook data during three election cycles to understand echo chambers, misinformation spread, and opinion polarization. We identify key factors driving political engagement online.",
-          "fields": ["Political Science", "Sociology"]
-        },
-        {
-          "title": "Federated Learning for Privacy-Preserving Medical Data Analysis",
-          "abstract": "Medical data analysis requires large datasets but privacy regulations limit data sharing. Federated learning enables collaborative model training without centralizing sensitive patient data. We demonstrate federated approaches for medical image classification and electronic health record analysis.",
-          "fields": ["Computer Science", "Medicine"]
-        },
-        {
-          "title": "Stellar Evolution Models for Low-Mass Stars in Globular Clusters",
-          "abstract": "Globular clusters contain some of the oldest stars in the universe, providing insights into early stellar evolution. This study presents improved stellar evolution models for low-mass stars, incorporating updated opacity calculations and convection theories. Results reconcile theoretical predictions with observed color-magnitude diagrams.",
-          "fields": ["Physics", "Astronomy"]
-        }
-      ]
+      ],
+      "correct_doc_index": 20
     }
-  ],
-  "evaluation_metrics": [
-    "hits_at_1",
-    "hits_at_3", 
-    "mean_reciprocal_rank",
-    "normalized_discounted_cumulative_gain"
-  ],
-  "notes": [
-    "Queries designed to test cross-field understanding (Medicine+CS, Medicine+Materials Science)",
-    "Distractors chosen from different fields to test specificity",
-    "Realistic academic language and citation patterns based on s2orc analysis",
-    "Balanced representation of major fields: Medicine (40%), Computer Science (20%), Biology (20%), Other (20%)"
   ]
-} 
+}

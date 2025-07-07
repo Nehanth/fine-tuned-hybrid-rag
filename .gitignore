@@ -1,8 +1,11 @@
 # Large data files
 data/processed_docs.jsonl
-embeddings/
+embeddings/dense.npy
+embeddings/tfidf_vectorizer.pkl
+embeddings/dense_finetuned.npy
 finetune/model/
 finetune/pairs.pkl
+
 
 # Python cache
 __pycache__/

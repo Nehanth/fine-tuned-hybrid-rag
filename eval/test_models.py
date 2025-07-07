@@ -2,14 +2,17 @@
 """
 Model Evaluation Script
 
-Tests base model vs fine-tuned model on academic paper retrieval tasks.
-Calculates standard information retrieval metrics.
+Tests base model vs fine-tuned model using the full hybrid retrieval system.
+Tests on the actual full dataset to find evaluation documents.
 """
+
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import json
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve, get_retrieval_stats
 
 
 def load_evaluation_dataset(filepath="eval/eval_dataset.json"):
@@ -18,91 +21,103 @@ def load_evaluation_dataset(filepath="eval/eval_dataset.json"):
         return json.load(f)
 
 
-def load_models(base_model_name="all-MiniLM-L6-v2", finetuned_model_path="finetune/model/"):
-    """Load both base and fine-tuned models."""
-    print("Loading models...")
-    base_model = SentenceTransformer(base_model_name)
-    finetuned_model = SentenceTransformer(finetuned_model_path)
-    print("Models loaded successfully")
-    return base_model, finetuned_model
+def find_document_in_dataset(target_doc, documents):
+    """Find a document in the full dataset by matching title."""
+    target_title = target_doc['title'].lower().strip()
+    
+    for i, doc in enumerate(documents):
+        if doc['text'].lower().startswith(target_title):
+            return i
+    
+    # If not found by title start, try partial match
+    for i, doc in enumerate(documents):
+        if target_title in doc['text'].lower():
+            return i
+    
+    return None
 
 
-def prepare_documents(correct_doc, distractor_docs):
-    """Prepare document texts by combining title and abstract."""
-    all_docs = [correct_doc] + distractor_docs
-    doc_texts = []
+def evaluate_with_hybrid_system(components, query, correct_doc, distractor_docs, user_filters=None):
+    """Evaluate using the full hybrid retrieval system on the actual dataset."""
+    # Find the correct document in the full dataset
+    correct_doc_id = find_document_in_dataset(correct_doc, components['documents'])
     
-    for doc in all_docs:
-        # Combine title and abstract like in training data
-        if 'abstract' in doc:
-            doc_text = f"{doc['title']} {doc['abstract']}"
-        else:
-            doc_text = doc['title']
-        doc_texts.append(doc_text)
+    # Find distractor documents
+    distractor_doc_ids = []
+    for distractor in distractor_docs:
+        doc_id = find_document_in_dataset(distractor, components['documents'])
+        if doc_id is not None:
+            distractor_doc_ids.append(doc_id)
     
-    return doc_texts
-
-
-def evaluate_model(model, query, doc_texts):
-    """Evaluate a single model on a query-document set."""
-    # Encode query and documents
-    query_embedding = model.encode([query])
-    doc_embeddings = model.encode(doc_texts)
+    # Run hybrid retrieval on full dataset
+    results = hybrid_retrieve(
+        query=query,
+        components=components,
+        user_filters=user_filters,
+        top_k=100,  # Get more results to find our target docs
+        candidate_pool_size=10000
+    )
     
-    # Calculate similarities
-    similarities = cosine_similarity(query_embedding, doc_embeddings)[0]
+    # Find ranks of our target documents
+    correct_rank = None
+    distractor_ranks = []
     
-    # Get ranking (indices sorted by similarity, descending)
-    ranking = np.argsort(similarities)[::-1]
+    for i, result in enumerate(results):
+        if result['doc_id'] == correct_doc_id:
+            correct_rank = i + 1
+        elif result['doc_id'] in distractor_doc_ids:
+            distractor_ranks.append(i + 1)
     
-    # Find rank of correct document (always index 0)
-    correct_rank = np.where(ranking == 0)[0][0] + 1
+    # Get the correct document's score
+    correct_score = None
+    if correct_rank is not None:
+        correct_score = results[correct_rank - 1]['scores']['final_score']
     
     return {
-        'similarities': similarities,
-        'ranking': ranking,
+        'results': results,
         'correct_rank': correct_rank,
-        'correct_similarity': similarities[0]
-    }
-
-
-def calculate_metrics(results):
-    """Calculate information retrieval metrics from evaluation results."""
-    total_queries = len(results)
-    
-    hits_at_1 = sum(1 for r in results if r['correct_rank'] == 1)
-    hits_at_3 = sum(1 for r in results if r['correct_rank'] <= 3)
-    
-    # Mean Reciprocal Rank
-    mrr = sum(1.0 / r['correct_rank'] for r in results) / total_queries
-    
-    # Average correct similarity score
-    avg_similarity = sum(r['correct_similarity'] for r in results) / total_queries
-    
-    return {
-        'hits_at_1': hits_at_1 / total_queries,
-        'hits_at_3': hits_at_3 / total_queries,
-        'mrr': mrr,
-        'avg_similarity': avg_similarity
+        'correct_doc_id': correct_doc_id,
+        'distractor_ranks': distractor_ranks,
+        'correct_final_score': correct_score,
+        'found_correct': correct_doc_id is not None,
+        'found_distractors': len(distractor_doc_ids)
     }
 
 
 def run_evaluation():
-    """Main evaluation function."""
-    print("Starting Model Evaluation")
+    """Main evaluation function using hybrid retrieval system."""
+    print("Starting Hybrid Retrieval Evaluation")
     print("=" * 50)
     
-    # Load data and models
+    # Load evaluation dataset
     eval_data = load_evaluation_dataset()
-    base_model, finetuned_model = load_models()
     
     print(f"Dataset: {eval_data['name']}")
     print(f"Number of queries: {len(eval_data['queries'])}")
     print()
     
-    # Store results for each model
+    # Load base model components
+    print("Loading base model components...")
+    base_components = load_retrieval_components()
+    
+    # Load fine-tuned model components  
+    print("Loading fine-tuned model components...")
+    ft_components = load_retrieval_components()
+    # Replace the sentence model with fine-tuned version
+    from sentence_transformers import SentenceTransformer
+    ft_components['sentence_model'] = SentenceTransformer('finetune/model/')
+    
+    # Replace embeddings with fine-tuned embeddings
+    print("Loading fine-tuned embeddings...")
+    ft_components['dense_embeddings'] = np.load('embeddings/dense_finetuned.npy')
+    print(f"Loaded fine-tuned embeddings shape: {ft_components['dense_embeddings'].shape}")
+    
+    print("Both systems loaded")
+    print()
+    
+    # Store results
     base_results = []
-    finetuned_results = []
+    ft_results = []
     
     print("Running evaluation on each query...")
     print()
@@ -112,63 +127,104 @@ def run_evaluation():
         query = query_data['query']
         correct_doc = query_data['correct_doc']
         distractor_docs = query_data['distractor_docs']
+        user_filters = query_data.get('user_filters', None)
         
         print(f"Query {i+1}: {query[:60]}...")
         print(f"Field: {query_data['field']}")
+        if user_filters:
+            print(f"🔍 METADATA FILTERING ENABLED:")
+            for key, value in user_filters.items():
+                print(f"    {key}: {value}")
+        else:
+            print("🔍 No metadata filtering (basic hybrid retrieval only)")
         
-        # Prepare documents
-        doc_texts = prepare_documents(correct_doc, distractor_docs)
-        
-        # Evaluate both models
-        base_result = evaluate_model(base_model, query, doc_texts)
-        finetuned_result = evaluate_model(finetuned_model, query, doc_texts)
-        
-        # Store results
+        # Evaluate with base model
+        base_result = evaluate_with_hybrid_system(base_components, query, correct_doc, distractor_docs, user_filters)
         base_results.append(base_result)
-        finetuned_results.append(finetuned_result)
+        
+        # Evaluate with fine-tuned model
+        ft_result = evaluate_with_hybrid_system(ft_components, query, correct_doc, distractor_docs, user_filters)
+        ft_results.append(ft_result)
         
         # Print comparison
-        print(f"  Base Model:    Rank {base_result['correct_rank']}/4 (similarity: {base_result['correct_similarity']:.3f})")
-        print(f"  Fine-tuned:    Rank {finetuned_result['correct_rank']}/4 (similarity: {finetuned_result['correct_similarity']:.3f})")
+        base_rank = base_result['correct_rank']
+        ft_rank = ft_result['correct_rank']
         
-        # Show improvement status
-        if finetuned_result['correct_rank'] < base_result['correct_rank']:
-            print("  Status: Fine-tuned ranked higher")
-        elif base_result['correct_rank'] < finetuned_result['correct_rank']:
-            print("  Status: Base model ranked higher")
+        if base_rank and ft_rank:
+            base_score = base_result['correct_final_score']
+            ft_score = ft_result['correct_final_score']
+            
+            print(f"  Base Model:    Rank {base_rank}/100 (final score: {base_score:.3f})")
+            print(f"  Fine-tuned:    Rank {ft_rank}/100 (final score: {ft_score:.3f})")
+            
+            # Show improvement status
+            if ft_rank < base_rank:
+                print("  Status: Fine-tuned ranked higher")
+            elif base_rank < ft_rank:
+                print("  Status: Base model ranked higher")
+            else:
+                print("  Status: Same rank")
         else:
-            print("  Status: Same rank")
+            print(f"  Base Model:    Document found: {base_result['found_correct']}")
+            print(f"  Fine-tuned:    Document found: {ft_result['found_correct']}")
+            print("  Status: Could not find target document in dataset")
+        
+        print(f"  Found {base_result['found_distractors']}/{len(distractor_docs)} distractors")
         print()
     
-    # Calculate final metrics
-    base_metrics = calculate_metrics(base_results)
-    finetuned_metrics = calculate_metrics(finetuned_results)
+    # Filter results where documents were found
+    valid_base_results = [r for r in base_results if r['correct_rank'] is not None]
+    valid_ft_results = [r for r in ft_results if r['correct_rank'] is not None]
+    
+    if not valid_base_results:
+        print("No valid evaluation results - could not find target documents in dataset")
+        return base_results, ft_results
+    
+    # Calculate metrics
+    base_hits_1 = sum(1 for r in valid_base_results if r['correct_rank'] == 1)
+    ft_hits_1 = sum(1 for r in valid_ft_results if r['correct_rank'] == 1)
+    
+    base_hits_10 = sum(1 for r in valid_base_results if r['correct_rank'] <= 10)
+    ft_hits_10 = sum(1 for r in valid_ft_results if r['correct_rank'] <= 10)
+    
+    # MRR
+    base_mrr = sum(1.0 / r['correct_rank'] for r in valid_base_results) / len(valid_base_results)
+    ft_mrr = sum(1.0 / r['correct_rank'] for r in valid_ft_results) / len(valid_ft_results)
+    
+    # Average final scores
+    base_avg_score = sum(r['correct_final_score'] for r in valid_base_results) / len(valid_base_results)
+    ft_avg_score = sum(r['correct_final_score'] for r in valid_ft_results) / len(valid_ft_results)
+    
+    # Average ranks
+    base_avg_rank = sum(r['correct_rank'] for r in valid_base_results) / len(valid_base_results)
+    ft_avg_rank = sum(r['correct_rank'] for r in valid_ft_results) / len(valid_ft_results)
     
     # Print results
-    print("EVALUATION RESULTS")
+    print("HYBRID RETRIEVAL EVALUATION RESULTS")
     print("=" * 50)
+    print(f"Valid evaluations: {len(valid_base_results)}/{len(base_results)}")
+    print()
     print(f"{'Metric':<20} {'Base Model':<12} {'Fine-tuned':<12} {'Improvement':<12}")
     print("-" * 60)
     
     # Hits@1
-    base_h1 = base_metrics['hits_at_1'] * 100
-    ft_h1 = finetuned_metrics['hits_at_1'] * 100
+    base_h1 = (base_hits_1 / len(valid_base_results)) * 100
+    ft_h1 = (ft_hits_1 / len(valid_ft_results)) * 100
     print(f"{'Hits@1 (%)':<20} {base_h1:<12.1f} {ft_h1:<12.1f} {ft_h1-base_h1:<+12.1f}")
     
-    # Hits@3
-    base_h3 = base_metrics['hits_at_3'] * 100
-    ft_h3 = finetuned_metrics['hits_at_3'] * 100
-    print(f"{'Hits@3 (%)':<20} {base_h3:<12.1f} {ft_h3:<12.1f} {ft_h3-base_h3:<+12.1f}")
+    # Hits@10
+    base_h10 = (base_hits_10 / len(valid_base_results)) * 100
+    ft_h10 = (ft_hits_10 / len(valid_ft_results)) * 100
+    print(f"{'Hits@10 (%)':<20} {base_h10:<12.1f} {ft_h10:<12.1f} {ft_h10-base_h10:<+12.1f}")
     
     # MRR
-    base_mrr = base_metrics['mrr']
-    ft_mrr = finetuned_metrics['mrr']
     print(f"{'MRR':<20} {base_mrr:<12.3f} {ft_mrr:<12.3f} {ft_mrr-base_mrr:<+12.3f}")
     
-    # Average similarity
-    base_sim = base_metrics['avg_similarity']
-    ft_sim = finetuned_metrics['avg_similarity']
-    print(f"{'Avg Similarity':<20} {base_sim:<12.3f} {ft_sim:<12.3f} {ft_sim-base_sim:<+12.3f}")
+    # Average rank
+    print(f"{'Avg Rank':<20} {base_avg_rank:<12.1f} {ft_avg_rank:<12.1f} {ft_avg_rank-base_avg_rank:<+12.1f}")
+    
+    # Average final score
+    print(f"{'Avg Final Score':<20} {base_avg_score:<12.3f} {ft_avg_score:<12.3f} {ft_avg_score-base_avg_score:<+12.3f}")
     
     print()
     
@@ -176,24 +232,29 @@ def run_evaluation():
     print("SUMMARY")
     print("-" * 20)
     if ft_h1 > base_h1:
-        print("Fine-tuning improved accuracy")
+        print("Fine-tuning improved accuracy with hybrid retrieval")
     elif ft_h1 == base_h1:
-        print("Fine-tuning maintained accuracy")
+        print("Fine-tuning maintained accuracy with hybrid retrieval")
     else:
-        print("Base model had better accuracy")
+        print("Base model had better accuracy with hybrid retrieval")
     
-    if ft_sim > base_sim:
-        print("Fine-tuning improved confidence scores")
+    if ft_avg_score > base_avg_score:
+        print("Fine-tuning improved hybrid retrieval scores")
     else:
-        print("Base model had higher confidence scores")
+        print("Base model had higher hybrid retrieval scores")
     
-    return base_metrics, finetuned_metrics
+    if ft_avg_rank < base_avg_rank:
+        print("Fine-tuning improved average ranking")
+    else:
+        print("Base model had better average ranking")
+    
+    return base_results, ft_results
 
 
 if __name__ == "__main__":
     try:
-        base_metrics, finetuned_metrics = run_evaluation()
-        print("\nEvaluation completed successfully")
+        base_results, ft_results = run_evaluation()
+        print("\nHybrid retrieval evaluation completed successfully")
         
     except Exception as e:
         print(f"Error during evaluation: {e}")
