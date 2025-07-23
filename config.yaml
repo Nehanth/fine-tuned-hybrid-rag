@@ -1,0 +1,42 @@
+model:
+  encoder: "all-MiniLM-L6-v2"  # Base model or path to fine-tuned model
+  device: "auto"  # auto, cpu, cuda
+
+dataset:
+  name: "leminda-ai/s2orc_small"
+  processed_path: "data/processed_docs.jsonl"
+
+# Scoring weights for hybrid retrieval
+scoring:
+  dense_weight: 0.6    # 60% semantic similarity
+  sparse_weight: 0.3   # 30% keyword matching  
+  boost_weight: 0.1    # 10% metadata boosting
+
+# Retrieval parameters
+retrieval:
+  top_k: 10
+  candidate_pool_size: 1000
+
+# Embedding generation settings
+embeddings:
+  dense_path: "embeddings/dense.npy"
+  dense_finetuned_path: "embeddings/dense_finetuned.npy"
+  tfidf_vectorizer_path: "embeddings/tfidf_vectorizer.pkl"
+  batch_size: 256  # For embedding generation
+  normalize_embeddings: true
+
+# Fine-tuning configuration
+finetune:
+  # Training data
+  pairs_path: "finetune/pairs.pkl"
+  max_pairs: 50000  # Limit for fast training
+  
+  # Model training
+  output_path: "finetune/model/"
+  epochs: 1
+  batch_size: 32
+  warmup_steps: 50
+  target_minutes: 10
+  
+  # Multi-GPU settings
+  use_multi_gpu: false  # Set to true for multi-GPU training

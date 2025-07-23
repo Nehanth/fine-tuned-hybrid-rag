@@ -73,10 +73,6 @@ def save_embeddings(dense_embeddings, tfidf_vectorizer, doc_ids):
     joblib.dump(tfidf_vectorizer, "embeddings/tfidf_vectorizer.pkl")
     print("Saved TF-IDF vectorizer to: embeddings/tfidf_vectorizer.pkl")
     
-    # TODO: Save document IDs for mapping back to original documents
-    # TODO: Consider using FAISS for efficient similarity search with dense embeddings
-    # TODO: Save sparse TF-IDF matrix for direct similarity computation
-    
     print("Embeddings generation complete!")
 
 def main():
