@@ -8,9 +8,17 @@ comparison where queries and documents use the same embedding space.
 
 import json
 import numpy as np
+import yaml
+import os
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
-import os
+
+
+def load_config() -> dict:
+    """Load configuration from config.yaml"""
+    with open("config.yaml", "r") as f:
+        return yaml.safe_load(f)
+
 
 def load_documents(file_path):
     """Load documents from JSONL file."""
@@ -25,18 +33,38 @@ def load_documents(file_path):
     print(f"Loaded {len(documents)} documents")
     return documents
 
+
 def generate_finetuned_embeddings():
     """Generate embeddings using the fine-tuned model."""
     print("Starting fine-tuned embedding generation...")
     print("=" * 50)
     
+    # Load configuration
+    config = load_config()
+    
+    # Get paths from config
+    model_path = config["finetune"]["output_path"]
+    documents_path = config["dataset"]["processed_path"]
+    output_path = config["embeddings"]["dense_finetuned_path"]
+    batch_size = config["embeddings"]["batch_size"]
+    normalize = config["embeddings"]["normalize_embeddings"]
+    device = config["model"]["device"]
+    
+    # Handle device configuration
+    if device == "auto":
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     # Load the fine-tuned model
-    print("Loading fine-tuned sentence transformer model...")
-    model = SentenceTransformer('../finetune/model/')
+    print(f"Loading fine-tuned sentence transformer model from: {model_path}")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Fine-tuned model not found at: {model_path}")
+    
+    model = SentenceTransformer(model_path, device=device)
     print(f"Using device: {model.device}")
     
     # Load documents
-    documents = load_documents('../data/processed_docs.jsonl')
+    documents = load_documents(documents_path)
     
     # Extract text from documents
     print("Extracting text from documents...")
@@ -47,29 +75,26 @@ def generate_finetuned_embeddings():
     
     # Generate embeddings in batches
     print("Generating embeddings with fine-tuned model...")
-    batch_size = 256  # Adjust based on GPU memory
     
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
         show_progress_bar=True,
         convert_to_numpy=True,
-        normalize_embeddings=True
+        normalize_embeddings=normalize
     )
     
     print(f"Generated embeddings shape: {embeddings.shape}")
     
+    # Create output directory if it doesn't exist
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
     # Save embeddings
-    output_file = 'dense_finetuned.npy'
-    print(f"Saving embeddings to {output_file}...")
-    
-    # Already in embeddings directory, no need to create it
-    
-    # Save as numpy array
-    np.save(output_file, embeddings)
+    print(f"Saving embeddings to {output_path}...")
+    np.save(output_path, embeddings)
     
     # Get file size
-    file_size = os.path.getsize(output_file)
+    file_size = os.path.getsize(output_path)
     file_size_mb = file_size / (1024 * 1024)
     
     print(f"Embeddings saved successfully!")
@@ -78,6 +103,7 @@ def generate_finetuned_embeddings():
     print(f"Dtype: {embeddings.dtype}")
     
     return embeddings
+
 
 if __name__ == "__main__":
     try:

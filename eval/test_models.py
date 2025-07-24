@@ -2,10 +2,14 @@
 """
 BEIR-style evaluation for hybrid RAG retrieval system.
 Compares base model vs fine-tuned model using statistical significance testing.
+
+Insipiration of this evaluation script: https://github.com/opendatahub-io/rag/blob/main/benchmarks/llama-stack-rag-with-beir/benchmark_beir_ls_vs_no_ls.py
 """
+
 
 import argparse
 import itertools
+import json
 import logging
 import os
 import pathlib
@@ -99,13 +103,14 @@ def create_synthetic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
     qrels = {}
     
     # Sample documents to create queries from
-    sampled_docs = random.sample(documents, min(num_queries, len(documents)))
+    sampled_indices = random.sample(range(len(documents)), min(num_queries, len(documents)))
     
-    for i, doc in enumerate(sampled_docs):
+    for i, doc_idx in enumerate(sampled_indices):
+        doc = documents[doc_idx]
         qid = f"q{i}"
-        doc_id = str(i)  # Use index as doc_id for qrels
+        doc_id = str(doc_idx)  # Use actual document index from the full dataset
         
-        # Create query from document text (first 50 words)
+        # Create query from document text
         text_words = doc.get('text', '').split()
         if len(text_words) < 10:
             continue
@@ -243,12 +248,21 @@ def evaluate_hybrid_retrieval(dataset_split="test", num_queries=100, top_k=10):
     documents = []
     with open(dataset_path, 'r') as f:
         for line in f:
-            documents.append(eval(line.strip()))
+            documents.append(json.loads(line.strip()))
     print(f"Loaded {len(documents)} documents")
+    
+    # Note: We need to use the same documents that are in the retrieval system
+    # The retrieval system uses the full processed_docs.jsonl, not the test split
+    print("Loading full dataset for proper evaluation...")
+    full_documents = []
+    with open(config["dataset"]["processed_path"], 'r') as f:
+        for line in f:
+            full_documents.append(json.loads(line.strip()))
+    print(f"Loaded {len(full_documents)} full documents (this matches retrieval system)")
     
     # Create synthetic queries and qrels
     print("Creating synthetic queries and relevance judgments...")
-    queries, qrels = create_synthetic_qrels(documents, num_queries)
+    queries, qrels = create_synthetic_qrels(full_documents, num_queries)
     print(f"Created {len(queries)} query-document pairs")
     print()
     

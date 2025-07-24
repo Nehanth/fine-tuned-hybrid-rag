@@ -39,7 +39,7 @@ finetune:
   epochs: 1
   batch_size: 32
   warmup_steps: 50
-  target_minutes: 10
+
   
   # Multi-GPU settings
   use_multi_gpu: false  # Set to true for multi-GPU training
