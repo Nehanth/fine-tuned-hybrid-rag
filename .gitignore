@@ -5,7 +5,8 @@ embeddings/tfidf_vectorizer.pkl
 embeddings/dense_finetuned.npy
 finetune/model/
 finetune/pairs.pkl
-
+data/test_docs.jsonl
+data/train_docs.jsonl
 
 # Python cache
 __pycache__/

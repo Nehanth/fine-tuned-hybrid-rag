@@ -2,6 +2,7 @@
 """
 Test script for hybrid retrieval system.
 Demonstrates usage with example queries and filters.
+Uses config.yaml for all settings.
 """
 
 import sys

@@ -5,6 +5,9 @@ model:
 dataset:
   name: "leminda-ai/s2orc_small"
   processed_path: "data/processed_docs.jsonl"
+  train_path: "data/train_docs.jsonl"
+  test_path: "data/test_docs.jsonl"
+  train_ratio: 0.8  # 80% for training, 20% for testing
 
 # Scoring weights for hybrid retrieval
 scoring:

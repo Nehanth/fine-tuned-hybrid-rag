@@ -1,262 +1,362 @@
 #!/usr/bin/env python3
 """
-Model Evaluation Script
-
-Tests base model vs fine-tuned model using the full hybrid retrieval system.
-Tests on the actual full dataset to find evaluation documents.
+BEIR-style evaluation for hybrid RAG retrieval system.
+Compares base model vs fine-tuned model using statistical significance testing.
 """
 
-import sys
+import argparse
+import itertools
+import logging
 import os
+import pathlib
+import sys
+import time
+import numpy as np
+import pytrec_eval
+import yaml
+from typing import Dict, List, Any
+
+# Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import json
-import numpy as np
-from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve, get_retrieval_stats
+from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve
+from sentence_transformers import SentenceTransformer
 
 
-def load_evaluation_dataset(filepath="eval/eval_dataset.json"):
-    """Load the evaluation dataset from JSON file."""
-    with open(filepath, 'r') as f:
-        return json.load(f)
-
-
-def find_document_in_dataset(target_doc, documents):
-    """Find a document in the full dataset by matching title."""
-    target_title = target_doc['title'].lower().strip()
-    
-    for i, doc in enumerate(documents):
-        if doc['text'].lower().startswith(target_title):
-            return i
-    
-    # If not found by title start, try partial match
-    for i, doc in enumerate(documents):
-        if target_title in doc['text'].lower():
-            return i
-    
-    return None
-
-
-def evaluate_with_hybrid_system(components, query, correct_doc, distractor_docs, user_filters=None):
-    """Evaluate using the full hybrid retrieval system on the actual dataset."""
-    # Find the correct document in the full dataset
-    correct_doc_id = find_document_in_dataset(correct_doc, components['documents'])
-    
-    # Find distractor documents
-    distractor_doc_ids = []
-    for distractor in distractor_docs:
-        doc_id = find_document_in_dataset(distractor, components['documents'])
-        if doc_id is not None:
-            distractor_doc_ids.append(doc_id)
-    
-    # Run hybrid retrieval on full dataset
-    results = hybrid_retrieve(
-        query=query,
-        components=components,
-        user_filters=user_filters,
-        top_k=100,  # Get more results to find our target docs
-        candidate_pool_size=10000
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Evaluate hybrid retrieval system with BEIR methodology"
     )
-    
-    # Find ranks of our target documents
-    correct_rank = None
-    distractor_ranks = []
-    
-    for i, result in enumerate(results):
-        if result['doc_id'] == correct_doc_id:
-            correct_rank = i + 1
-        elif result['doc_id'] in distractor_doc_ids:
-            distractor_ranks.append(i + 1)
-    
-    # Get the correct document's score
-    correct_score = None
-    if correct_rank is not None:
-        correct_score = results[correct_rank - 1]['scores']['final_score']
-    
-    return {
-        'results': results,
-        'correct_rank': correct_rank,
-        'correct_doc_id': correct_doc_id,
-        'distractor_ranks': distractor_ranks,
-        'correct_final_score': correct_score,
-        'found_correct': correct_doc_id is not None,
-        'found_distractors': len(distractor_doc_ids)
-    }
+    parser.add_argument(
+        "--dataset",
+        default="test",
+        help="Dataset split to use (train/test)"
+    )
+    parser.add_argument(
+        "--num-queries",
+        type=int,
+        default=100,
+        help="Number of queries to evaluate (default: 100)"
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=10,
+        help="Number of documents to retrieve (default: 10)"
+    )
+    return parser.parse_args()
 
 
-def run_evaluation():
-    """Main evaluation function using hybrid retrieval system."""
-    print("Starting Hybrid Retrieval Evaluation")
+# Configure logging
+logging.basicConfig(
+    format="%(asctime)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
+
+class HybridRetriever:
+    """Wrapper for our hybrid retrieval system to match BEIR interface."""
+    
+    def __init__(self, components, model_name="base"):
+        self.components = components
+        self.model_name = model_name
+        
+    def retrieve(self, queries: Dict[str, str], top_k: int = 10) -> tuple:
+        """Retrieve documents for queries and return results with timing."""
+        results = {}
+        times = {}
+        
+        for qid, query in queries.items():
+            start_time = time.perf_counter()
+            
+            # Use our hybrid retrieval system
+            retrieved_docs = hybrid_retrieve(
+                query=query,
+                components=self.components,
+                top_k=top_k
+            )
+            
+            end_time = time.perf_counter()
+            times[qid] = end_time - start_time
+            
+            # Convert to BEIR format: {doc_id: score}
+            doc_scores = {}
+            for doc in retrieved_docs:
+                doc_scores[str(doc['doc_id'])] = doc['scores']['final_score']
+            
+            results[qid] = doc_scores
+            
+        return results, times
+
+
+def create_synthetic_qrels(documents: List[Dict], num_queries: int = 100) -> tuple:
+    """Create synthetic queries and relevance judgments from our dataset."""
+    import random
+    
+    queries = {}
+    qrels = {}
+    
+    # Sample documents to create queries from
+    sampled_docs = random.sample(documents, min(num_queries, len(documents)))
+    
+    for i, doc in enumerate(sampled_docs):
+        qid = f"q{i}"
+        doc_id = str(i)  # Use index as doc_id for qrels
+        
+        # Create query from document text (first 50 words)
+        text_words = doc.get('text', '').split()
+        if len(text_words) < 10:
+            continue
+            
+        # Use middle portion of text as query to avoid exact matches
+        start_idx = len(text_words) // 4
+        end_idx = start_idx + min(10, len(text_words) // 2)
+        query_words = text_words[start_idx:end_idx]
+        query = ' '.join(query_words)
+        
+        # Add some domain-specific terms based on metadata
+        if 'metadata' in doc:
+            fields = doc['metadata'].get('fieldsOfStudy', [])
+            if fields and len(fields) > 0:
+                # Add a field term to make it more specific
+                query = f"{fields[0]} {query}"
+        
+        queries[qid] = query
+        
+        # Create relevance judgments (the source doc is highly relevant)
+        qrels[qid] = {doc_id: 1}  # Binary relevance
+        
+    return queries, qrels
+
+
+def permutation_test_for_paired_samples(scores_a, scores_b, iterations=10_000):
+    """Performs a permutation test of a given statistic on provided data."""
+    from scipy.stats import permutation_test
+    
+    def _statistic(x, y, axis):
+        return np.mean(x, axis=axis) - np.mean(y, axis=axis)
+    
+    result = permutation_test(
+        data=(scores_a, scores_b),
+        statistic=_statistic,
+        n_resamples=iterations,
+        alternative="two-sided",
+        permutation_type="samples",
+    )
+    return float(result.pvalue)
+
+
+def print_stats_significance(scores_a, scores_b, overview_label, label_a, label_b):
+    """Print statistical significance test results."""
+    mean_score_a = np.mean(scores_a)
+    mean_score_b = np.mean(scores_b)
+    
+    p_value = permutation_test_for_paired_samples(scores_a, scores_b)
+    
+    print(overview_label)
+    print(f" {label_a:<30}: {mean_score_a:>10.4f}")
+    print(f" {label_b:<30}: {mean_score_b:>10.4f}")
+    print(f" {'p_value':<30}: {p_value:>10.4f}")
+    
+    if p_value < 0.05:
+        print("  p_value<0.05 so this result is statistically significant")
+        higher_model = label_a if mean_score_a >= mean_score_b else label_b
+        print(f"  {higher_model} has significantly higher performance")
+        return True
+    else:
+        import math
+        print("  p_value>=0.05 so this result is NOT statistically significant")
+        print("  No significant difference detected")
+        num_samples = len(scores_a)
+        margin_of_error = 1 / math.sqrt(num_samples)
+        print(f"  Margin of error: ±{margin_of_error:.1%} ({num_samples} samples)")
+        return False
+
+
+def get_metrics(all_scores):
+    """Extract available metrics from scores."""
+    for scores_for_dataset in all_scores.values():
+        for scores_for_condition in scores_for_dataset.values():
+            for scores_for_question in scores_for_condition.values():
+                metrics = list(scores_for_question.keys())
+                metrics.sort()
+                return metrics
+    return []
+
+
+def print_scores(all_scores):
+    """Print comparison of all scores with statistical significance."""
+    metrics = get_metrics(all_scores)
+    has_significant_difference = False
+    
+    for dataset_name, scores_for_dataset in all_scores.items():
+        condition_labels = list(scores_for_dataset.keys())
+        condition_labels.sort()
+        
+        for metric in metrics:
+            if metric == "time":  # Skip timing for significance
+                continue
+                
+            overview_label = f"{dataset_name} {metric}"
+            for label_a, label_b in itertools.combinations(condition_labels, 2):
+                scores_for_label_a = scores_for_dataset[label_a]
+                scores_for_label_b = scores_for_dataset[label_b]
+                
+                scores_a = [score_group[metric] for score_group in scores_for_label_a.values()]
+                scores_b = [score_group[metric] for score_group in scores_for_label_b.values()]
+                
+                is_significant = print_stats_significance(
+                    scores_a, scores_b, overview_label, label_a, label_b
+                )
+                print()
+                
+                has_significant_difference = has_significant_difference or is_significant
+    
+    return has_significant_difference
+
+
+def evaluate_hybrid_retrieval(dataset_split="test", num_queries=100, top_k=10):
+    """Main evaluation function using BEIR methodology."""
+    
+    print("BEIR-Style Hybrid Retrieval Evaluation")
     print("=" * 50)
     
-    # Load evaluation dataset
-    eval_data = load_evaluation_dataset()
+    # Load config
+    with open("config.yaml", "r") as f:
+        config = yaml.safe_load(f)
     
-    print(f"Dataset: {eval_data['name']}")
-    print(f"Number of queries: {len(eval_data['queries'])}")
+    # Determine dataset path
+    if dataset_split == "test":
+        dataset_path = config["dataset"]["test_path"]
+    else:
+        dataset_path = config["dataset"]["train_path"]
+    
+    print(f"Dataset: {dataset_path}")
+    print(f"Queries to evaluate: {num_queries}")
+    print(f"Top-k retrieval: {top_k}")
+    print()
+    
+    # Load documents for creating synthetic evaluation
+    print("Loading documents for synthetic query generation...")
+    documents = []
+    with open(dataset_path, 'r') as f:
+        for line in f:
+            documents.append(eval(line.strip()))
+    print(f"Loaded {len(documents)} documents")
+    
+    # Create synthetic queries and qrels
+    print("Creating synthetic queries and relevance judgments...")
+    queries, qrels = create_synthetic_qrels(documents, num_queries)
+    print(f"Created {len(queries)} query-document pairs")
     print()
     
     # Load base model components
     print("Loading base model components...")
-    base_components = load_retrieval_components()
+    base_components = load_retrieval_components(config)
+    base_retriever = HybridRetriever(base_components, "BaseModel")
     
-    # Load fine-tuned model components  
+    # Load fine-tuned model components
     print("Loading fine-tuned model components...")
-    ft_components = load_retrieval_components()
-    # Replace the sentence model with fine-tuned version
-    from sentence_transformers import SentenceTransformer
-    ft_components['sentence_model'] = SentenceTransformer('finetune/model/')
+    ft_components = load_retrieval_components(config)
     
-    # Replace embeddings with fine-tuned embeddings
-    print("Loading fine-tuned embeddings...")
-    ft_components['dense_embeddings'] = np.load('embeddings/dense_finetuned.npy')
-    print(f"Loaded fine-tuned embeddings shape: {ft_components['dense_embeddings'].shape}")
+    # Check if fine-tuned model exists
+    ft_model_path = config["finetune"]["output_path"]
+    ft_embeddings_path = config["embeddings"]["dense_finetuned_path"]
     
-    print("Both systems loaded")
+    if os.path.exists(ft_model_path) and os.path.exists(ft_embeddings_path):
+        print("Fine-tuned model found, loading...")
+        ft_components['sentence_model'] = SentenceTransformer(ft_model_path)
+        ft_components['dense_embeddings'] = np.load(ft_embeddings_path)
+        ft_retriever = HybridRetriever(ft_components, "FineTunedModel")
+        compare_models = True
+    else:
+        print("Fine-tuned model not found, evaluating base model only...")
+        ft_retriever = None
+        compare_models = False
+    
+    print("Models loaded successfully")
     print()
     
-    # Store results
-    base_results = []
-    ft_results = []
+    # Store all scores for statistical analysis
+    all_scores = {"hybrid_evaluation": {}}
     
-    print("Running evaluation on each query...")
+    # Evaluate base model
+    print("Evaluating base model...")
+    base_results, base_times = base_retriever.retrieve(queries, top_k)
+    
+    # Evaluate fine-tuned model if available
+    if compare_models:
+        print("Evaluating fine-tuned model...")
+        ft_results, ft_times = ft_retriever.retrieve(queries, top_k)
+    
+    # Calculate BEIR metrics using pytrec_eval
+    k_values = [top_k]
+    map_string = "map_cut." + ",".join([str(k) for k in k_values])
+    ndcg_string = "ndcg_cut." + ",".join([str(k) for k in k_values])
+    metrics_strings = {ndcg_string, map_string}
+    
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, metrics_strings)
+    
+    # Evaluate base model
+    base_scores = evaluator.evaluate(base_results)
+    for qid, scores_for_qid in base_scores.items():
+        scores_for_qid["time"] = base_times[qid]
+    all_scores["hybrid_evaluation"]["BaseModel"] = base_scores
+    
+    # Evaluate fine-tuned model if available
+    if compare_models:
+        ft_scores = evaluator.evaluate(ft_results)
+        for qid, scores_for_qid in ft_scores.items():
+            scores_for_qid["time"] = ft_times[qid]
+        all_scores["hybrid_evaluation"]["FineTunedModel"] = ft_scores
+    
+    print("Evaluation completed")
     print()
-    
-    # Evaluate each query
-    for i, query_data in enumerate(eval_data['queries']):
-        query = query_data['query']
-        correct_doc = query_data['correct_doc']
-        distractor_docs = query_data['distractor_docs']
-        user_filters = query_data.get('user_filters', None)
-        
-        print(f"Query {i+1}: {query[:60]}...")
-        print(f"Field: {query_data['field']}")
-        if user_filters:
-            print(f"🔍 METADATA FILTERING ENABLED:")
-            for key, value in user_filters.items():
-                print(f"    {key}: {value}")
-        else:
-            print("🔍 No metadata filtering (basic hybrid retrieval only)")
-        
-        # Evaluate with base model
-        base_result = evaluate_with_hybrid_system(base_components, query, correct_doc, distractor_docs, user_filters)
-        base_results.append(base_result)
-        
-        # Evaluate with fine-tuned model
-        ft_result = evaluate_with_hybrid_system(ft_components, query, correct_doc, distractor_docs, user_filters)
-        ft_results.append(ft_result)
-        
-        # Print comparison
-        base_rank = base_result['correct_rank']
-        ft_rank = ft_result['correct_rank']
-        
-        if base_rank and ft_rank:
-            base_score = base_result['correct_final_score']
-            ft_score = ft_result['correct_final_score']
-            
-            print(f"  Base Model:    Rank {base_rank}/100 (final score: {base_score:.3f})")
-            print(f"  Fine-tuned:    Rank {ft_rank}/100 (final score: {ft_score:.3f})")
-            
-            # Show improvement status
-            if ft_rank < base_rank:
-                print("  Status: Fine-tuned ranked higher")
-            elif base_rank < ft_rank:
-                print("  Status: Base model ranked higher")
-            else:
-                print("  Status: Same rank")
-        else:
-            print(f"  Base Model:    Document found: {base_result['found_correct']}")
-            print(f"  Fine-tuned:    Document found: {ft_result['found_correct']}")
-            print("  Status: Could not find target document in dataset")
-        
-        print(f"  Found {base_result['found_distractors']}/{len(distractor_docs)} distractors")
-        print()
-    
-    # Filter results where documents were found
-    valid_base_results = [r for r in base_results if r['correct_rank'] is not None]
-    valid_ft_results = [r for r in ft_results if r['correct_rank'] is not None]
-    
-    if not valid_base_results:
-        print("No valid evaluation results - could not find target documents in dataset")
-        return base_results, ft_results
-    
-    # Calculate metrics
-    base_hits_1 = sum(1 for r in valid_base_results if r['correct_rank'] == 1)
-    ft_hits_1 = sum(1 for r in valid_ft_results if r['correct_rank'] == 1)
-    
-    base_hits_10 = sum(1 for r in valid_base_results if r['correct_rank'] <= 10)
-    ft_hits_10 = sum(1 for r in valid_ft_results if r['correct_rank'] <= 10)
-    
-    # MRR
-    base_mrr = sum(1.0 / r['correct_rank'] for r in valid_base_results) / len(valid_base_results)
-    ft_mrr = sum(1.0 / r['correct_rank'] for r in valid_ft_results) / len(valid_ft_results)
-    
-    # Average final scores
-    base_avg_score = sum(r['correct_final_score'] for r in valid_base_results) / len(valid_base_results)
-    ft_avg_score = sum(r['correct_final_score'] for r in valid_ft_results) / len(valid_ft_results)
-    
-    # Average ranks
-    base_avg_rank = sum(r['correct_rank'] for r in valid_base_results) / len(valid_base_results)
-    ft_avg_rank = sum(r['correct_rank'] for r in valid_ft_results) / len(valid_ft_results)
     
     # Print results
-    print("HYBRID RETRIEVAL EVALUATION RESULTS")
-    print("=" * 50)
-    print(f"Valid evaluations: {len(valid_base_results)}/{len(base_results)}")
-    print()
-    print(f"{'Metric':<20} {'Base Model':<12} {'Fine-tuned':<12} {'Improvement':<12}")
-    print("-" * 60)
+    print("RESULTS")
+    print("=" * 30)
     
-    # Hits@1
-    base_h1 = (base_hits_1 / len(valid_base_results)) * 100
-    ft_h1 = (ft_hits_1 / len(valid_ft_results)) * 100
-    print(f"{'Hits@1 (%)':<20} {base_h1:<12.1f} {ft_h1:<12.1f} {ft_h1-base_h1:<+12.1f}")
-    
-    # Hits@10
-    base_h10 = (base_hits_10 / len(valid_base_results)) * 100
-    ft_h10 = (ft_hits_10 / len(valid_ft_results)) * 100
-    print(f"{'Hits@10 (%)':<20} {base_h10:<12.1f} {ft_h10:<12.1f} {ft_h10-base_h10:<+12.1f}")
-    
-    # MRR
-    print(f"{'MRR':<20} {base_mrr:<12.3f} {ft_mrr:<12.3f} {ft_mrr-base_mrr:<+12.3f}")
-    
-    # Average rank
-    print(f"{'Avg Rank':<20} {base_avg_rank:<12.1f} {ft_avg_rank:<12.1f} {ft_avg_rank-base_avg_rank:<+12.1f}")
-    
-    # Average final score
-    print(f"{'Avg Final Score':<20} {base_avg_score:<12.3f} {ft_avg_score:<12.3f} {ft_avg_score-base_avg_score:<+12.3f}")
-    
-    print()
-    
-    # Summary
-    print("SUMMARY")
-    print("-" * 20)
-    if ft_h1 > base_h1:
-        print("Fine-tuning improved accuracy with hybrid retrieval")
-    elif ft_h1 == base_h1:
-        print("Fine-tuning maintained accuracy with hybrid retrieval")
+    if compare_models:
+        # Statistical comparison
+        has_significant_difference = print_scores(all_scores)
+        
+        # Summary
+        print("\nSUMMARY")
+        print("-" * 20)
+        if has_significant_difference:
+            print("✅ Significant performance difference detected")
+        else:
+            print("ℹ️  No significant performance difference detected")
+            
     else:
-        print("Base model had better accuracy with hybrid retrieval")
+        # Single model results
+        base_metrics = list(base_scores[list(base_scores.keys())[0]].keys())
+        for metric in base_metrics:
+            if metric != "time":
+                scores = [base_scores[qid][metric] for qid in base_scores.keys()]
+                mean_score = np.mean(scores)
+                print(f"{metric}: {mean_score:.4f}")
     
-    if ft_avg_score > base_avg_score:
-        print("Fine-tuning improved hybrid retrieval scores")
-    else:
-        print("Base model had higher hybrid retrieval scores")
-    
-    if ft_avg_rank < base_avg_rank:
-        print("Fine-tuning improved average ranking")
-    else:
-        print("Base model had better average ranking")
-    
-    return base_results, ft_results
+    return all_scores
 
 
 if __name__ == "__main__":
+    args = parse_args()
+    
     try:
-        base_results, ft_results = run_evaluation()
-        print("\nHybrid retrieval evaluation completed successfully")
+        all_scores = evaluate_hybrid_retrieval(
+            dataset_split=args.dataset,
+            num_queries=args.num_queries,
+            top_k=args.top_k
+        )
+        
+        print("\n✅ BEIR-style evaluation completed successfully")
         
     except Exception as e:
-        print(f"Error during evaluation: {e}")
+        print(f"❌ Error during evaluation: {e}")
         import traceback
-        traceback.print_exc() 
+        traceback.print_exc()
+        sys.exit(1) 
