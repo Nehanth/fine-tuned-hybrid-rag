@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Generate Fine-tuned Dense Embeddings with new model
 """
@@ -55,8 +54,7 @@ def generate_finetuned_dense_embeddings(documents, model, config):
     normalize = config["embeddings"]["normalize_embeddings"]
     
     print("Generating embeddings with fine-tuned model...")
-    print(f"Processing {len(documents)} documents...")
-    print(f"Example text length: {len(documents[0])} characters")
+
     
     embeddings = model.encode(
         documents,
@@ -65,8 +63,7 @@ def generate_finetuned_dense_embeddings(documents, model, config):
         convert_to_numpy=True,
         normalize_embeddings=normalize
     )
-    
-    print(f"Generated embeddings shape: {embeddings.shape}")
+
     return embeddings
 
 
@@ -85,9 +82,6 @@ def save_finetuned_embeddings(embeddings, output_path):
     file_size_mb = file_size / (1024 * 1024)
     
     print(f"Embeddings saved successfully!")
-    print(f"File size: {file_size_mb:.2f} MB")
-    print(f"Shape: {embeddings.shape}")
-    print(f"Dtype: {embeddings.dtype}")
 
 
 def main():

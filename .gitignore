@@ -7,7 +7,7 @@ finetune/model/
 finetune/pairs.pkl
 data/test_docs.jsonl
 data/train_docs.jsonl
-
+results/
 # Python cache
 __pycache__/
 *.pyc

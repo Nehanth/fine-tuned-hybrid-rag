@@ -1,222 +1,124 @@
-# fine-tuned-hybrid-rag
+# Fine-Tuned Hybrid RAG System
 
-A fine-tuned hybrid retrieval-augmented generation (RAG) system for academic paper search. Combines dense semantic search, sparse TF-IDF search, and metadata boosting with optional fine-tuning capabilities.
+A retrieval-augmented generation (RAG) system that combines dense semantic search, sparse keyword matching, and metadata boosting with fine-tuning capabilities
 
-## 🏗️ Architecture
+## Overview
 
-**Hybrid Retrieval System** with three components:
-- **Dense Semantic Search** (60% weight) - MiniLM sentence transformers
-- **Sparse TF-IDF Search** (30% weight) - Traditional keyword matching  
-- **Metadata Boosting** (10% weight) - Publication year, venue, field preferences
+This system implements a hybrid retrieval approach that:
+- Uses dense embeddings (Sentence Transformers) for semantic similarity
+- Applies sparse TF-IDF vectors for keyword matching
+- Incorporates metadata boosting based on dataset details
+- Fine-tunes the base model using contrastive learning
+- Evaluates performance using [BEIR methodology](https://github.com/opendatahub-io/rag/blob/main/benchmarks/llama-stack-rag-with-beir/benchmark_beir_ls_vs_no_ls.py)
 
-## 📋 Available Scripts
+## Architecture
 
-### 1. Data Preparation
+The pipeline consists of five main stages:
+
+1. **Data Processing**: Downloads and processes academic papers from S2ORC dataset
+2. **Base Embedding Generation**: Creates dense embeddings and TF-IDF vectors
+3. **Model Fine-tuning**: Trains the encoder using query-document pairs
+4. **Fine-tuned Embedding Generation**: Creates embeddings with the improved model
+5. **Evaluation**: Compares base vs fine-tuned performance using standard metrics
+
+## Quick Start
+
+### Requirements
+
 ```bash
-# Download and process S2ORC academic papers dataset
-python data/download_data.py
-```
-- Downloads `leminda-ai/s2orc_small` from HuggingFace
-- Processes papers into JSONL format with metadata
-- Output: `data/processed_docs.jsonl` (1.2GB)
-
-### 2. Generate Base Embeddings
-```bash
-# Create dense and sparse embeddings for all documents
-python embeddings/generate_embeddings.py
-```
-- Generates dense embeddings using `all-MiniLM-L6-v2`
-- Creates TF-IDF vectorizer for sparse search
-- Outputs:
-  - `embeddings/dense.npy` (1.3GB)
-  - `embeddings/tfidf_vectorizer.pkl` (375KB)
-
-### 3. Test Basic Retrieval
-```bash
-# Demo the hybrid retrieval system
-python test_retrieval.py
-```
-- Tests basic hybrid search (no metadata filtering)
-- Tests metadata-boosted search with filters
-- Shows detailed scoring breakdown
-
-### 4. Fine-tuning (Optional)
-
-#### Generate Training Pairs
-```bash
-# Create title-to-abstract training pairs
-python finetune/generate_pairs.py
-```
-- Creates contrastive learning pairs from original dataset
-- Output: `finetune/pairs.pkl` (1.1GB)
-
-#### Train Fine-tuned Model
-```bash
-# Fine-tune MiniLM encoder (10-minute training)
-python finetune/train_query_encoder.py
-```
-- Fine-tunes model using contrastive learning
-- GPU-accelerated with configurable batch sizes
-- Output: `finetune/model/` (fine-tuned model)
-
-#### Generate Fine-tuned Embeddings
-```bash
-# Re-embed documents with fine-tuned model
-python embeddings/generate_finetuned_embeddings.py
-```
-- Creates embeddings using fine-tuned model
-- Output: `embeddings/dense_finetuned.npy` (1.3GB)
-
-### 5. Model Evaluation
-```bash
-# Compare base vs fine-tuned model performance
-python eval/test_models.py
-```
-- Tests both models on 10 evaluation queries
-- Shows ranking improvements and score comparisons
-- Includes metadata filtering scenarios
-
-## 🚀 Quick Start
-
-### Minimum Setup (Base Model Only)
-```bash
-# 1. Install dependencies
 pip install -r requirements.txt
-
-# 2. Download and process data
-python data/download_data.py
-
-# 3. Generate embeddings
-python embeddings/generate_embeddings.py
-
-# 4. Test retrieval
-python test_retrieval.py
 ```
 
-### Full Setup (With Fine-tuning)
+### Basic Usage
+
 ```bash
-# Steps 1-3 from above, then:
-
-# 4. Generate training pairs
-python finetune/generate_pairs.py
-
-# 5. Fine-tune model
-python finetune/train_query_encoder.py
-
-# 6. Generate fine-tuned embeddings
-python embeddings/generate_finetuned_embeddings.py
-
-# 7. Compare models
-python eval/test_models.py
+python main.py
 ```
 
-## 📊 Usage Examples
+This runs the complete pipeline using settings from `config.yaml`.
 
-### Basic Search
-```python
-from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve
+### Configuration
 
-# Load system components
-components = load_retrieval_components()
+You can customize the encoder, scoring weights, and fine-tuning parameters by editing `config.yaml`:
 
-# Search for papers
-results = hybrid_retrieve(
-    "machine learning neural networks deep learning", 
-    components, 
-    top_k=5
-)
+```yaml
+model:
+  encoder: "sentence-transformers/all-MiniLM-L6-v2"  # Any Sentence Transformers model
+  device: "auto"
 
-# View results
-for i, result in enumerate(results):
-    print(f"{i+1}. {result['text'][:100]}...")
-    print(f"   Score: {result['scores']['final_score']:.4f}")
-    print(f"   Year: {result['metadata']['year']}")
+scoring:
+  dense_weight: 0.6    # Adjust semantic search weight
+  sparse_weight: 0.3   # Adjust keyword search weight  
+  boost_weight: 0.1    # Adjust metadata boost weight
+
+finetune:
+  max_pairs: 50000     # Number of training pairs
+  epochs: 1            # Training epochs
+  batch_size: 32       # Batch size for training
 ```
 
-### Search with Metadata Filtering
-```python
-# Define user preferences
-user_filters = {
-    "field": "Computer Science",
-    "year_after": 2018,
-    "venue": "NeurIPS"
-}
+**Note**: The dataset configuration is currently fixed to `leminda-ai/s2orc_small` since the metadata boosting schema is not yet dynamic and only supports this specific dataset format.
 
-# Search with filtering
-results = hybrid_retrieve(
-    "transformer attention mechanisms", 
-    components, 
-    user_filters=user_filters,
-    top_k=10
-)
-```
+## Components
 
-### Using Fine-tuned Model
-```python
-import numpy as np
-from sentence_transformers import SentenceTransformer
+### Dense Retrieval
 
-# Load fine-tuned components
-components = load_retrieval_components()
-components['sentence_model'] = SentenceTransformer('finetune/model/')
-components['dense_embeddings'] = np.load('embeddings/dense_finetuned.npy')
+Uses Sentence Transformers to create semantic embeddings that capture the meaning and context of documents. This component excels at finding conceptually similar content even when exact keywords don't match.
 
-# Search with fine-tuned model
-results = hybrid_retrieve("your query", components)
-```
+### Sparse Retrieval
 
-## 📁 File Structure
+Applies TF-IDF vectorization for traditional keyword-based matching. This component ensures that documents containing specific terms mentioned in the query are properly ranked and retrieved.
+
+### Metadata Boosting
+
+Enhances retrieval scores based on document metadata such as publication year, venue, authors, and field of study. Documents matching user preferences receive higher rankings in the final results.
+
+### Fine-tuning
+
+The system uses contrastive learning with automatically generated query-document pairs from the dataset. Training queries include metadata context (venue, year, authors, field) to improve retrieval performance.
+
+## File Structure
 
 ```
 ├── data/
-│   ├── processed_docs.jsonl      # Processed academic papers (1.2GB)
-│   └── download_data.py          # Dataset preparation script
+│   ├── processed_docs.jsonl          # Processed dataset
+│   └── download_data.py               # Dataset preparation
 ├── embeddings/
-│   ├── dense.npy                 # Base model embeddings (1.3GB)
-│   ├── dense_finetuned.npy       # Fine-tuned embeddings (1.3GB)
-│   ├── tfidf_vectorizer.pkl      # TF-IDF vectorizer (375KB)
-│   ├── generate_embeddings.py    # Base embedding generation
-│   └── generate_finetuned_embeddings.py
+│   ├── dense.npy                      # Base model embeddings
+│   ├── dense_finetuned.npy            # Fine-tuned embeddings
+│   ├── tfidf_vectorizer.pkl           # TF-IDF vectorizer
+│   ├── generate_embeddings.py         # Base embedding generation
+│   └── generate_finetuned_embeddings.py # Tuned embedding generation
 ├── retrieval/
-│   ├── hybrid_retriever.py       # Main retrieval logic
-│   ├── scorer.py                 # Score combination
-│   └── metadata_boosting.py      # Metadata filtering/boosting
+│   ├── hybrid_retriever.py            # Main retrieval logic
+│   └── metadata_boosting.py           # Metadata filtering and boosting
 ├── finetune/
-│   ├── pairs.pkl                 # Training pairs (1.1GB)
-│   ├── model/                    # Fine-tuned model checkpoints
-│   ├── generate_pairs.py         # Training pair generation
-│   └── train_query_encoder.py    # Model fine-tuning
+│   ├── model/                         # Fine-tuned model checkpoints
+│   └── train_query_encoder.py         # Model fine-tuning
 ├── eval/
-│   ├── eval_dataset.json         # Evaluation queries (10 queries)
-│   └── test_models.py            # Model comparison
-├── test_retrieval.py             # Main demo script
-└── requirements.txt              # Dependencies
+│   └── test_models.py                 # Evaluation
+├── results/
+│   └── run_YYYYMMDD_HHMMSS/          #  Results
+├── config.yaml                       # Configuration file
+└── main.py                           # Pipeline orchestrator
 ```
 
-## 🛠️ Dependencies
+## Evaluation
+
+The system uses BEIR methodology with standard metrics:
+
+- **MAP@k**: Mean Average Precision
+- **NDCG@k**: Normalized Discounted Cumulative Gain
+- **Statistical significance testing** using permutation tests
+
+## Output Files
+
+After running the pipeline, check the results directory:
 
 ```
-datasets                # HuggingFace datasets
-sentence-transformers   # Dense embeddings & fine-tuning
-scikit-learn           # TF-IDF vectorization
-numpy                  # Numerical operations
-tqdm                   # Progress bars
-joblib                 # Model serialization
+results/run_20250124_143022/
+├── evaluation_output.txt        # Raw evaluation output
+├── evaluation_results.txt       # Clean evaluation results
+├── generated_files.txt          # Paths to all generated files
+└── run_summary.json             # Pipeline execution summary
 ```
-
-## 📈 System Stats
-
-- **Documents**: ~1.2GB of academic papers from S2ORC
-- **Embeddings**: 384-dimensional (MiniLM-L6-v2)
-- **Training**: 50K pairs, 10-minute GPU training
-- **Evaluation**: 10 real academic queries with ground truth
-- **Storage**: ~4GB total (data + embeddings + models)
-
-## 🎯 Performance
-
-The system provides:
-- **Semantic Understanding**: Dense embeddings capture meaning
-- **Keyword Matching**: TF-IDF for exact term matches
-- **Metadata Filtering**: Year, venue, field, author preferences
-- **Fine-tuning**: Domain-specific improvements for academic papers
-- **Configurable Scoring**: Adjustable weights for different components

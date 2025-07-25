@@ -2,7 +2,7 @@
 Download and Process S2ORC Dataset
 
 This script downloads the S2ORC academic papers dataset and processes it into
-a JSONL format for use in the hybrid RAG retrieval system.
+a JSON format for use in the hybrid RAG retrieval system.
 """
 
 import json
@@ -46,7 +46,7 @@ def download_and_process_dataset(config: dict) -> list:
             skipped += 1
             continue
         
-        # Create processed document
+        # Create processed document with metadata schema of the dataset (Current: S2ORC)
         processed_doc = {
             'id': i,
             'text': f"{title} {abstract}",

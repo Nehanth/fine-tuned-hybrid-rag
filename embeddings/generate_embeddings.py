@@ -88,9 +88,6 @@ def save_embeddings(dense_embeddings, tfidf_vectorizer, doc_ids, config):
     """Save embeddings and vectorizer to disk."""
     print("Saving embeddings...")
     
-    # Create embeddings directory if it doesn't exist
-    os.makedirs("embeddings", exist_ok=True)
-    
     # Save dense embeddings
     dense_path = config["embeddings"]["dense_path"]
     np.save(dense_path, dense_embeddings)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 BEIR-style evaluation for hybrid RAG retrieval system.
-Compares base model vs fine-tuned model using statistical significance testing.
+Compares base model vs fine-tuned model
 
 Insipiration of this evaluation script: https://github.com/opendatahub-io/rag/blob/main/benchmarks/llama-stack-rag-with-beir/benchmark_beir_ls_vs_no_ls.py
 """
@@ -115,12 +115,51 @@ def create_synthetic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
         query_words = text_words[start_idx:end_idx]
         query = ' '.join(query_words)
         
-        # Add some domain-specific terms based on metadata
+        # Add domain-specific terms from ALL available metadata (matches training)
         if 'metadata' in doc:
-            fields = doc['metadata'].get('fieldsOfStudy', [])
+            metadata = doc['metadata']
+            metadata_terms = []
+            
+            # Add field of study
+            fields = metadata.get('fieldsOfStudy', [])
             if fields and len(fields) > 0:
-                # Add a field term to make it more specific
-                query = f"{fields[0]} {query}"
+                main_field = fields[0] if isinstance(fields[0], str) else str(fields[0])
+                metadata_terms.append(main_field)
+            
+            # Add venue information
+            venue = metadata.get('venue', '')
+            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
+                # Use venue abbreviation or first word for conciseness
+                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
+                metadata_terms.append(venue_term)
+            
+            # Add year information
+            year = metadata.get('year')
+            if year and isinstance(year, (int, float)):
+                metadata_terms.append(str(int(year)))
+            
+            # Add author information (first author's last name)
+            authors = metadata.get('authors', [])
+            if authors and len(authors) > 0:
+                first_author = authors[0]
+                if isinstance(first_author, dict) and 'name' in first_author:
+                    author_name = first_author['name']
+                    # Extract last name (assuming "First Last" format)
+                    if ' ' in author_name:
+                        last_name = author_name.split()[-1]
+                        metadata_terms.append(last_name)
+                elif isinstance(first_author, str):
+                    # Handle string author names
+                    if ' ' in first_author:
+                        last_name = first_author.split()[-1]
+                        metadata_terms.append(last_name)
+            
+            # Combine metadata terms with query (limit to avoid overly long queries)
+            if metadata_terms:
+                # Use up to 3 metadata terms to keep queries reasonable (matches training)
+                selected_terms = metadata_terms[:3]
+                metadata_prefix = ' '.join(selected_terms)
+                query = f"{metadata_prefix} {query}"
         
         queries[qid] = query
         
@@ -249,7 +288,7 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     base_components = load_retrieval_components(config)
     base_retriever = HybridRetriever(base_components, "BaseModel")
     
-    # Load fine-tuned model components
+    # Load fine-tuned model components  
     print("Loading fine-tuned model components...")
     ft_components = load_retrieval_components(config)
     
@@ -314,16 +353,15 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     if compare_models:
         # Statistical comparison
         has_significant_difference = print_scores(all_scores)
-        
-        # Summary
-        print("\nSUMMARY")
-        print("-" * 20)
-        if has_significant_difference:
-            print("✅ Significant performance difference detected")
-        else:
-            print("ℹ️  No significant performance difference detected")
-            
+    
+    # Summary
+    print("\nSUMMARY")
+    print("-" * 20)
+    if has_significant_difference:
+        print("Significant performance difference detected")
     else:
+        print("No significant performance difference detected")
+    
         # Single model results
         base_metrics = list(base_scores[list(base_scores.keys())[0]].keys())
         for metric in base_metrics:
@@ -349,5 +387,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error during evaluation: {e}")
         import traceback
-        traceback.print_exc()
+        traceback.print_exc() 
         sys.exit(1) 

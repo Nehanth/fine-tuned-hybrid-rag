@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Fine-tune MiniLM semantic encoder using contrastive learning.
 
@@ -28,9 +27,6 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
     """
     Create training pairs using text-snippet queries (matches evaluation approach).
     
-    This uses the SAME logic as the evaluation to create queries from middle 
-    portions of document text, ensuring perfect training-evaluation alignment.
-    
     Training pairs: text_snippet → (title + abstract)
     
     Args:
@@ -46,8 +42,7 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
     dataset = load_dataset(dataset_name, split="train")
     
     print("Creating training pairs using text-snippet queries...")
-    print("Training strategy: text_snippet → (title + abstract)")
-    print("This matches the evaluation approach for perfect alignment!")
+    
     pairs = []
     skipped = 0
     
@@ -76,7 +71,6 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
             # Create combined document text (same as processed data)
             combined_text = f"{title} {abstract}"
             
-            # === SAME LOGIC AS EVALUATION ===
             # Create query from document text using middle portion
             text_words = combined_text.split()
             if len(text_words) < 10:
@@ -89,11 +83,49 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
             query_words = text_words[start_idx:end_idx]
             query = ' '.join(query_words)
             
-            # Add some domain-specific terms based on metadata (if available)
+            # Add domain-specific terms from ALL available metadata
+            metadata_terms = []
+            
+            # Add field of study
             fields_of_study = doc.get('fieldsOfStudy', [])
             if fields_of_study and len(fields_of_study) > 0:
                 main_field = fields_of_study[0] if isinstance(fields_of_study[0], str) else str(fields_of_study[0])
-                query = f"{main_field} {query}"
+                metadata_terms.append(main_field)
+            
+            # Add venue information
+            venue = doc.get('venue', '')
+            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
+                # Use venue abbreviation or first word for conciseness
+                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
+                metadata_terms.append(venue_term)
+            
+            # Add year information
+            year = doc.get('year')
+            if year and isinstance(year, (int, float)):
+                metadata_terms.append(str(int(year)))
+            
+            # Add author information (first author's last name)
+            authors = doc.get('authors', [])
+            if authors and len(authors) > 0:
+                first_author = authors[0]
+                if isinstance(first_author, dict) and 'name' in first_author:
+                    author_name = first_author['name']
+                    # Extract last name (assuming "First Last" format)
+                    if ' ' in author_name:
+                        last_name = author_name.split()[-1]
+                        metadata_terms.append(last_name)
+                elif isinstance(first_author, str):
+                    # Handle string author names
+                    if ' ' in first_author:
+                        last_name = first_author.split()[-1]
+                        metadata_terms.append(last_name)
+            
+            # Combine metadata terms with query (limit to avoid overly long queries)
+            if metadata_terms:
+                # Use up to 3 metadata terms to keep queries reasonable
+                selected_terms = metadata_terms[:3]
+                metadata_prefix = ' '.join(selected_terms)
+                query = f"{metadata_prefix} {query}"
             
             # Create training pair: text_snippet → (title + abstract)
             pair = InputExample(texts=[query, combined_text])
@@ -114,7 +146,6 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
             # Create combined document text (same as processed data)
             combined_text = f"{title} {abstract}"
             
-            # === SAME LOGIC AS EVALUATION ===
             # Create query from document text using middle portion
             text_words = combined_text.split()
             if len(text_words) < 10:
@@ -127,24 +158,54 @@ def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
             query_words = text_words[start_idx:end_idx]
             query = ' '.join(query_words)
             
-            # Add some domain-specific terms based on metadata (if available)
+            # Add domain-specific terms from ALL available metadata
+            metadata_terms = []
+            
+            # Add field of study
             fields_of_study = doc.get('fieldsOfStudy', [])
             if fields_of_study and len(fields_of_study) > 0:
                 main_field = fields_of_study[0] if isinstance(fields_of_study[0], str) else str(fields_of_study[0])
-                query = f"{main_field} {query}"
+                metadata_terms.append(main_field)
+            
+            # Add venue information
+            venue = doc.get('venue', '')
+            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
+                # Use venue abbreviation or first word for conciseness
+                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
+                metadata_terms.append(venue_term)
+            
+            # Add year information
+            year = doc.get('year')
+            if year and isinstance(year, (int, float)):
+                metadata_terms.append(str(int(year)))
+            
+            # Add author information (first author's last name)
+            authors = doc.get('authors', [])
+            if authors and len(authors) > 0:
+                first_author = authors[0]
+                if isinstance(first_author, dict) and 'name' in first_author:
+                    author_name = first_author['name']
+                    # Extract last name (assuming "First Last" format)
+                    if ' ' in author_name:
+                        last_name = author_name.split()[-1]
+                        metadata_terms.append(last_name)
+                elif isinstance(first_author, str):
+                    # Handle string author names
+                    if ' ' in first_author:
+                        last_name = first_author.split()[-1]
+                        metadata_terms.append(last_name)
+            
+            # Combine metadata terms with query (limit to avoid overly long queries)
+            if metadata_terms:
+                # Use up to 3 metadata terms to keep queries reasonable
+                selected_terms = metadata_terms[:3]
+                metadata_prefix = ' '.join(selected_terms)
+                query = f"{metadata_prefix} {query}"
             
             # Create training pair: text_snippet → (title + abstract)
             pair = InputExample(texts=[query, combined_text])
             pairs.append(pair)
-    
-    print(f"Created {len(pairs)} training pairs using text-snippet queries")
-    print(f"Skipped {skipped} documents (missing data or too short)")
-    print("Benefits of this approach:")
-    print("  🎯 Perfect training-evaluation alignment")
-    print("  🌍 Realistic queries that match real-world usage")
-    print("  📊 Same logic as evaluation for fair comparison")
-    print("  🔍 Text-snippet queries simulate partial user knowledge")
-    
+
     return pairs
 
 
@@ -172,7 +233,7 @@ def setup_model(config: dict) -> SentenceTransformer:
     
     # Enable multi-GPU if available and requested
     if use_multi_gpu and torch.cuda.device_count() > 1:
-        print(f"🚀 Enabling multi-GPU training with {torch.cuda.device_count()} GPUs")
+        print(f"Enabling multi-GPU training with {torch.cuda.device_count()} GPUs")
         
         # Wrap the internal model with DataParallel
         if hasattr(model, '_modules'):
@@ -181,7 +242,7 @@ def setup_model(config: dict) -> SentenceTransformer:
                     print(f"Wrapping {name} module with DataParallel")
                     model._modules[name] = nn.DataParallel(module)
         
-        print(f"✅ Multi-GPU setup complete")
+        print(f"Multi-GPU setup complete")
     else:
         print(f"Using device: {device}")
     

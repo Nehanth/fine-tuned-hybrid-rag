@@ -75,6 +75,66 @@ def create_output_directory() -> str:
     return output_dir
 
 
+def save_file_paths(output_dir: str, config: dict, steps_completed: list):
+    """Save a text file listing all generated file paths."""
+    paths_file = os.path.join(output_dir, "generated_files.txt")
+    
+    with open(paths_file, 'w') as f:
+        f.write("Generated Files from Fine-Tuned Hybrid RAG Pipeline\n")
+        f.write("=" * 60 + "\n")
+        f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        
+        # Dataset files
+        f.write("DATASET FILES:\n")
+        f.write("-" * 20 + "\n")
+        if "data_processing" in steps_completed:
+            f.write(f"✓ Processed documents: {config['dataset']['processed_path']}\n")
+        else:
+            f.write(f"✗ Processed documents: {config['dataset']['processed_path']} (not generated)\n")
+        f.write("\n")
+        
+        # Embedding files
+        f.write("EMBEDDING FILES:\n")
+        f.write("-" * 20 + "\n")
+        if "base_embeddings" in steps_completed:
+            f.write(f"✓ Base dense embeddings: {config['embeddings']['dense_path']}\n")
+            f.write(f"✓ TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']}\n")
+        else:
+            f.write(f"✗ Base dense embeddings: {config['embeddings']['dense_path']} (not generated)\n")
+            f.write(f"✗ TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']} (not generated)\n")
+        
+        if "finetuned_embeddings" in steps_completed:
+            f.write(f"✓ Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']}\n")
+        else:
+            f.write(f"✗ Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']} (not generated)\n")
+        f.write("\n")
+        
+        # Model files
+        f.write("MODEL FILES:\n")
+        f.write("-" * 20 + "\n")
+        if "fine_tuning" in steps_completed:
+            f.write(f"✓ Fine-tuned model: {config['finetune']['output_path']}\n")
+        else:
+            f.write(f"✗ Fine-tuned model: {config['finetune']['output_path']} (not generated)\n")
+        f.write("\n")
+        
+        # Evaluation files
+        f.write("EVALUATION FILES:\n")
+        f.write("-" * 20 + "\n")
+        if "evaluation" in steps_completed:
+            f.write(f"✓ Evaluation output: {output_dir}/evaluation_output.txt\n")
+            f.write(f"✓ Evaluation results: {output_dir}/evaluation_results.txt\n")
+        else:
+            f.write(f"✗ Evaluation files: (not generated)\n")
+        f.write("\n")
+        
+        # Summary files
+        f.write("SUMMARY FILES:\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"✓ Run summary: {output_dir}/run_summary.json\n")
+        f.write(f"✓ File paths: {output_dir}/generated_files.txt\n")
+
+
 def save_run_summary(output_dir: str, config: dict, config_path: str, steps_completed: list, 
                     evaluation_results: dict = None):
     """Save a summary of the pipeline run."""
@@ -207,8 +267,12 @@ def main():
             print("-" * 40)
             print(eval_output)
         
-        # Try to extract key metrics for summary
-        evaluation_results = {"status": "completed", "output_file": f"{output_dir}/evaluation_output.txt"}
+        # Save evaluation results to separate file
+        eval_results_file = f"{output_dir}/evaluation_results.txt"
+        with open(eval_results_file, 'w') as f:
+            f.write(eval_output)
+        
+        evaluation_results = {"status": "completed", "results_file": eval_results_file}
         
     else:
         print("Evaluation failed!")
@@ -224,7 +288,7 @@ def main():
     print(f"Completed Steps: {', '.join(steps_completed)}")
     
     if "evaluation" in steps_completed:
-        print(f"Evaluation Results: {output_dir}/evaluation_output.txt")
+        print(f"Evaluation Results: {output_dir}/pipeline_output.txt")
         print("Pipeline completed successfully!")
     else:
         print("Pipeline completed with some issues")
@@ -232,7 +296,11 @@ def main():
     # Save run summary
     save_run_summary(output_dir, config, "config.yaml", steps_completed, evaluation_results)
     
+    # Save file paths summary
+    save_file_paths(output_dir, config, steps_completed)
+    
     print(f"\nComplete run summary: {output_dir}/run_summary.json")
+    print(f"Generated file paths: {output_dir}/generated_files.txt")
     print("=" * 80)
     
     return 0
