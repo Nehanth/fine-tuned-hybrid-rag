@@ -109,6 +109,15 @@ def save_file_paths(output_dir: str, config: dict, steps_completed: list):
             f.write(f"✗ Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']} (not generated)\n")
         f.write("\n")
         
+        # Training files
+        f.write("TRAINING FILES:\n")
+        f.write("-" * 20 + "\n")
+        if "pair_generation" in steps_completed:
+            f.write(f"✓ Realistic training pairs: finetune/realistic_training_pairs.json\n")
+        else:
+            f.write(f"✗ Realistic training pairs: finetune/realistic_training_pairs.json (not generated)\n")
+        f.write("\n")
+        
         # Model files
         f.write("MODEL FILES:\n")
         f.write("-" * 20 + "\n")
@@ -199,9 +208,21 @@ def main():
         print("Pipeline failed at base embedding generation")
         return 1
     
-    # Step 3: Model Fine-tuning
+    # Step 3: Generate Realistic Training Pairs
     success = run_step(
-        "Model Fine-tuning",
+        "Generate Realistic Training Pairs",
+        "python finetune/generate_pairs.py",
+        skip=False
+    )
+    if success:
+        steps_completed.append("pair_generation")
+    else:
+        print("Pipeline failed at training pair generation step")
+        return 1
+    
+    # Step 4: Model Fine-tuning with Realistic Pairs
+    success = run_step(
+        "Model Fine-tuning with Realistic Pairs",
         "python finetune/train_query_encoder.py",
         skip=False
     )
@@ -211,7 +232,7 @@ def main():
         print("Pipeline failed at fine-tuning step")
         return 1
     
-    # Step 4: Fine-tuned Embedding Generation
+    # Step 5: Fine-tuned Embedding Generation
     success = run_step(
         "Fine-tuned Embedding Generation",
         "python embeddings/generate_finetuned_embeddings.py",
@@ -223,7 +244,7 @@ def main():
         print("Pipeline failed at fine-tuned embedding generation")
         return 1
     
-    # Step 5: Verify Required Files
+    # Step 6: Verify Required Files
     print("\n" + "=" * 80)
     print("VERIFICATION: Checking Required Files")
     print("=" * 80)
@@ -245,7 +266,7 @@ def main():
         print("\nSome required files are missing. Cannot proceed with evaluation.")
         return 1
     
-    # Step 6: Evaluation
+    # Step 7: Evaluation
     print("\n" + "=" * 80)
     print("STEP: Model Evaluation")
     print("=" * 80)
@@ -278,7 +299,7 @@ def main():
         print("Evaluation failed!")
         evaluation_results = {"status": "failed", "exit_code": eval_result}
     
-    # Step 7: Generate Final Summary
+    # Step 8: Generate Final Summary
     print("\n" + "=" * 80)
     print("PIPELINE SUMMARY")
     print("=" * 80)

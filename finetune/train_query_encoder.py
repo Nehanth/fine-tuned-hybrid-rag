@@ -1,19 +1,15 @@
 """
-Fine-tune MiniLM semantic encoder using contrastive learning.
-
-This script trains a sentence transformer model using query-document pairs
-directly from the dataset to improve retrieval performance.
+Fine-tune MiniLM semantic encoder using realistic training pairs.
 """
 
 import os
+import json
 import yaml
 import torch
 import torch.nn as nn
-import random
 from typing import List, Optional
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
-from datasets import load_dataset
 from tqdm import tqdm
 
 
@@ -23,189 +19,42 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-def create_training_pairs_from_dataset(config: dict) -> List[InputExample]:
+def load_realistic_training_pairs(pairs_file: str) -> List[InputExample]:
     """
-    Create training pairs using text-snippet queries (matches evaluation approach).
-    
-    Training pairs: text_snippet → (title + abstract)
+    Load realistic training pairs from JSON file.
     
     Args:
-        config (dict): Configuration dictionary
+        pairs_file (str): Path to the realistic training pairs JSON file
         
     Returns:
         List[InputExample]: List of training pairs
     """
-    dataset_name = config["dataset"]["name"]
-    max_pairs = config["finetune"]["max_pairs"]
+    print(f"Loading realistic training pairs from: {pairs_file}")
     
-    print(f"Loading dataset: {dataset_name}")
-    dataset = load_dataset(dataset_name, split="train")
+    if not os.path.exists(pairs_file):
+        raise FileNotFoundError(f"Training pairs file not found: {pairs_file}")
     
-    print("Creating training pairs using text-snippet queries...")
+    with open(pairs_file, 'r', encoding='utf-8') as f:
+        training_data = json.load(f)
     
     pairs = []
-    skipped = 0
-    
-    # Process documents with sampling if specified
-    total_docs = len(dataset)
-    if max_pairs and total_docs > max_pairs:
-        print(f"Sampling {max_pairs} documents from {total_docs} for fast training...")
-        # Generate random indices for sampling
-        sampled_indices = random.sample(range(total_docs), max_pairs)
-        sampled_indices_set = set(sampled_indices)
+    for item in tqdm(training_data, desc="Converting to InputExamples"):
+        query = item['query']
+        document = item['document']
         
-        # Process only sampled documents
-        for i, doc in enumerate(tqdm(dataset, desc="Processing documents", total=total_docs)):
-            if i not in sampled_indices_set:
-                continue
-            
-            # Extract title and abstract
-            title = doc.get('title', '').strip()
-            abstract = doc.get('paperAbstract', '').strip()
-            
-            # Skip if missing or empty title/abstract
-            if not title or not abstract:
-                skipped += 1
-                continue
-            
-            # Create combined document text (same as processed data)
-            combined_text = f"{title} {abstract}"
-            
-            # Create query from document text using middle portion
-            text_words = combined_text.split()
-            if len(text_words) < 10:
-                skipped += 1
-                continue
-                
-            # Use middle portion of text as query to avoid exact matches
-            start_idx = len(text_words) // 4
-            end_idx = start_idx + min(10, len(text_words) // 2)
-            query_words = text_words[start_idx:end_idx]
-            query = ' '.join(query_words)
-            
-            # Add domain-specific terms from ALL available metadata
-            metadata_terms = []
-            
-            # Add field of study
-            fields_of_study = doc.get('fieldsOfStudy', [])
-            if fields_of_study and len(fields_of_study) > 0:
-                main_field = fields_of_study[0] if isinstance(fields_of_study[0], str) else str(fields_of_study[0])
-                metadata_terms.append(main_field)
-            
-            # Add venue information
-            venue = doc.get('venue', '')
-            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
-                # Use venue abbreviation or first word for conciseness
-                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
-                metadata_terms.append(venue_term)
-            
-            # Add year information
-            year = doc.get('year')
-            if year and isinstance(year, (int, float)):
-                metadata_terms.append(str(int(year)))
-            
-            # Add author information (first author's last name)
-            authors = doc.get('authors', [])
-            if authors and len(authors) > 0:
-                first_author = authors[0]
-                if isinstance(first_author, dict) and 'name' in first_author:
-                    author_name = first_author['name']
-                    # Extract last name (assuming "First Last" format)
-                    if ' ' in author_name:
-                        last_name = author_name.split()[-1]
-                        metadata_terms.append(last_name)
-                elif isinstance(first_author, str):
-                    # Handle string author names
-                    if ' ' in first_author:
-                        last_name = first_author.split()[-1]
-                        metadata_terms.append(last_name)
-            
-            # Combine metadata terms with query (limit to avoid overly long queries)
-            if metadata_terms:
-                # Use up to 3 metadata terms to keep queries reasonable
-                selected_terms = metadata_terms[:3]
-                metadata_prefix = ' '.join(selected_terms)
-                query = f"{metadata_prefix} {query}"
-            
-            # Create training pair: text_snippet → (title + abstract)
-            pair = InputExample(texts=[query, combined_text])
-            pairs.append(pair)
-                    
-    else:
-        print(f"Processing all {total_docs} documents...")
-        for doc in tqdm(dataset, desc="Processing documents", total=total_docs):
-            # Extract title and abstract
-            title = doc.get('title', '').strip()
-            abstract = doc.get('paperAbstract', '').strip()
-            
-            # Skip if missing or empty title/abstract
-            if not title or not abstract:
-                skipped += 1
-                continue
-            
-            # Create combined document text (same as processed data)
-            combined_text = f"{title} {abstract}"
-            
-            # Create query from document text using middle portion
-            text_words = combined_text.split()
-            if len(text_words) < 10:
-                skipped += 1
-                continue
-                
-            # Use middle portion of text as query to avoid exact matches
-            start_idx = len(text_words) // 4
-            end_idx = start_idx + min(10, len(text_words) // 2)
-            query_words = text_words[start_idx:end_idx]
-            query = ' '.join(query_words)
-            
-            # Add domain-specific terms from ALL available metadata
-            metadata_terms = []
-            
-            # Add field of study
-            fields_of_study = doc.get('fieldsOfStudy', [])
-            if fields_of_study and len(fields_of_study) > 0:
-                main_field = fields_of_study[0] if isinstance(fields_of_study[0], str) else str(fields_of_study[0])
-                metadata_terms.append(main_field)
-            
-            # Add venue information
-            venue = doc.get('venue', '')
-            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
-                # Use venue abbreviation or first word for conciseness
-                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
-                metadata_terms.append(venue_term)
-            
-            # Add year information
-            year = doc.get('year')
-            if year and isinstance(year, (int, float)):
-                metadata_terms.append(str(int(year)))
-            
-            # Add author information (first author's last name)
-            authors = doc.get('authors', [])
-            if authors and len(authors) > 0:
-                first_author = authors[0]
-                if isinstance(first_author, dict) and 'name' in first_author:
-                    author_name = first_author['name']
-                    # Extract last name (assuming "First Last" format)
-                    if ' ' in author_name:
-                        last_name = author_name.split()[-1]
-                        metadata_terms.append(last_name)
-                elif isinstance(first_author, str):
-                    # Handle string author names
-                    if ' ' in first_author:
-                        last_name = first_author.split()[-1]
-                        metadata_terms.append(last_name)
-            
-            # Combine metadata terms with query (limit to avoid overly long queries)
-            if metadata_terms:
-                # Use up to 3 metadata terms to keep queries reasonable
-                selected_terms = metadata_terms[:3]
-                metadata_prefix = ' '.join(selected_terms)
-                query = f"{metadata_prefix} {query}"
-            
-            # Create training pair: text_snippet → (title + abstract)
-            pair = InputExample(texts=[query, combined_text])
-            pairs.append(pair)
-
+        # Create training pair: query → document
+        pair = InputExample(texts=[query, document])
+        pairs.append(pair)
+    
+    print(f"Loaded {len(pairs)} realistic training pairs")
+    
+    # Show some examples
+    print("\nExample training pairs:")
+    for i, pair in enumerate(pairs[:3]):
+        print(f"{i+1}. Query: '{pair.texts[0]}'")
+        print(f"   Document: '{pair.texts[1][:100]}...'")
+        print()
+    
     return pairs
 
 
@@ -318,7 +167,7 @@ def train_model(
     output_path = config["finetune"]["output_path"]
     
     print("=" * 60)
-    print("Starting Fine-tuning Training")
+    print("Starting Fine-tuning Training with Realistic Pairs")
     print("=" * 60)
     
     # Create output directory
@@ -333,6 +182,7 @@ def train_model(
     print(f"Batches per epoch: {len(dataloader)}")
     print(f"Total steps: {total_steps}")
     print(f"GPUs: {torch.cuda.device_count()}")
+    print(f"Training pairs: Realistic synthetic queries")
     
     # Train the model
     model.fit(
@@ -344,9 +194,9 @@ def train_model(
         max_grad_norm=1.0,
         use_amp=True,
         optimizer_class=torch.optim.AdamW,
-        optimizer_params={'lr': 3e-5},
+        optimizer_params={'lr': 2e-5},  # Slightly lower LR for better convergence
         weight_decay=0.01,
-
+        scheduler='WarmupLinear'
     )
     
     print("=" * 60)
@@ -357,17 +207,27 @@ def train_model(
 
 def main():
     """
-    Main training function using config.yaml.
+    Main training function using realistic synthetic pairs.
     """
     print("=" * 60)
-    print("Fine-tuning Semantic Encoder")
+    print("Fine-tuning Semantic Encoder with Realistic Pairs")
     print("=" * 60)
     
     # Load configuration
     config = load_config()
     
-    # Create training pairs directly from dataset
-    pairs = create_training_pairs_from_dataset(config)
+    # Load realistic training pairs (generated in previous pipeline step)
+    pairs_file = "finetune/realistic_training_pairs.json"
+    if not os.path.exists(pairs_file):
+        print(f"ERROR: Training pairs not found at {pairs_file}")
+        print("Training pairs should have been generated in the previous pipeline step.")
+        print("Please ensure 'python finetune/generate_pairs.py' ran successfully.")
+        return
+    
+    print(f"Using training pairs from: {pairs_file}")
+    
+    # Load realistic training pairs
+    pairs = load_realistic_training_pairs(pairs_file)
     
     # Setup model
     model = setup_model(config)
@@ -387,7 +247,8 @@ def main():
         config=config
     )
     
-    print("Fine-tuning completed!")
+    print("Fine-tuning with realistic pairs completed!")
+
 
 if __name__ == "__main__":
     main() 

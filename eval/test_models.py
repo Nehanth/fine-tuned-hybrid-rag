@@ -18,12 +18,14 @@ import time
 import numpy as np
 import pytrec_eval
 import yaml
+import random
 from typing import Dict, List, Any
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve
 from sentence_transformers import SentenceTransformer
+from finetune.generate_pairs import extract_key_terms, generate_keyword_queries, generate_question_queries, generate_title_based_queries
 
 
 def parse_args():
@@ -61,18 +63,25 @@ class HybridRetriever:
         self.components = components
         self.model_name = model_name
         
-    def retrieve(self, queries: Dict[str, str], top_k: int = 10) -> tuple:
+    def retrieve(self, queries: Dict[str, str], user_filters_list: Dict[str, Dict] = None, top_k: int = 10) -> tuple:
         """Retrieve documents for queries and return results with timing."""
         results = {}
         times = {}
         
+        if user_filters_list is None:
+            user_filters_list = {}
+        
         for qid, query in queries.items():
             start_time = time.perf_counter()
             
-            # Use our hybrid retrieval system
+            # Get user filters for this query
+            user_filters = user_filters_list.get(qid, {})
+            
+            # Use our hybrid retrieval system with metadata filters
             retrieved_docs = hybrid_retrieve(
                 query=query,
                 components=self.components,
+                user_filters=user_filters,
                 top_k=top_k
             )
             
@@ -89,84 +98,153 @@ class HybridRetriever:
         return results, times
 
 
-def create_synthetic_qrels(documents: List[Dict], num_queries: int = 100) -> tuple:
-    """Create synthetic queries and relevance judgments from our dataset."""
-    import random
+def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tuple:
+    """Create realistic queries with metadata filters and relevance judgments."""
     
     queries = {}
     qrels = {}
+    user_filters_list = {}  # Store user filters for each query
     
     # Sample documents to create queries from
     sampled_indices = random.sample(range(len(documents)), min(num_queries, len(documents)))
     
+    def generate_realistic_query(doc: Dict) -> str:
+        """Generate a realistic query using the same logic as training data generation."""
+        # Generate different types of queries using imported functions
+        all_queries = []
+        
+        # 1. Keyword-based queries (most common in real search)
+        all_queries.extend(generate_keyword_queries(doc))
+        
+        # 2. Question-based queries  
+        all_queries.extend(generate_question_queries(doc))
+        
+        # 3. Title-based queries
+        all_queries.extend(generate_title_based_queries(doc))
+        
+        # Remove duplicates and empty queries
+        unique_queries = []
+        seen_queries = set()
+        for query in all_queries:
+            query = query.strip()
+            if query and len(query) >= 3 and query not in seen_queries:
+                seen_queries.add(query)
+                unique_queries.append(query)
+        
+        # Select query with same balanced distribution as training
+        if unique_queries:
+            # Get different types of queries
+            keyword_queries = [q for q in unique_queries if not q.startswith(('what is', 'how does', 'research on'))]
+            question_queries = [q for q in unique_queries if q.startswith(('what is', 'how does', 'research on'))]
+            
+            # Balanced selection: 70% keywords, 30% questions (matches training)
+            if question_queries and random.random() < 0.3:
+                return random.choice(question_queries)
+            elif keyword_queries:
+                return keyword_queries[0]
+            else:
+                return unique_queries[0]
+        
+        # Fallback
+        return "research paper"
+    
+    def generate_user_filters(doc: Dict) -> Dict[str, Any]:
+        """Generate realistic user filters based on document metadata."""
+        metadata = doc.get('metadata', {})
+        filters = {}
+        
+        # Randomly add different types of filters (simulate user preferences)
+        filter_probability = random.random()
+        
+        # 30% chance of field preference
+        if filter_probability < 0.3:
+            fields = metadata.get('fieldsOfStudy', [])
+            if fields:
+                filters['field'] = random.choice(fields)
+        
+        # 20% chance of venue preference
+        elif filter_probability < 0.5:
+            venue = metadata.get('venue', '')
+            if venue and len(venue.strip()) > 0:
+                filters['venue'] = venue
+        
+        # 25% chance of year-based filters
+        elif filter_probability < 0.75:
+            doc_year = metadata.get('year')
+            if doc_year and isinstance(doc_year, (int, float)):
+                year = int(doc_year)
+                # Recent papers preference
+                if random.random() < 0.6:
+                    filters['year_after'] = max(1990, year - random.randint(5, 15))
+                else:
+                    # Historical papers preference
+                    filters['year_before'] = min(2023, year + random.randint(2, 10))
+        
+        # 15% chance of author preference
+        elif filter_probability < 0.9:
+            authors = metadata.get('authors', [])
+            if authors:
+                author = random.choice(authors)
+                if isinstance(author, dict) and 'name' in author:
+                    # Use last name for author search
+                    name = author['name']
+                    if ' ' in name:
+                        filters['author'] = name.split()[-1]
+        
+        # 10% chance of hard filters
+        if random.random() < 0.1:
+            # Add some hard filters occasionally
+            fields = metadata.get('fieldsOfStudy', [])
+            if fields:
+                filters['required_fields'] = [random.choice(fields)]
+        
+        return filters
+    
     for i, doc_idx in enumerate(sampled_indices):
         doc = documents[doc_idx]
         qid = f"q{i}"
-        doc_id = str(doc_idx)  # Use actual document index from the full dataset
+        doc_id = str(doc_idx)
         
-        # Create query from document text
-        text_words = doc.get('text', '').split()
-        if len(text_words) < 10:
+        # Skip if document doesn't have required fields
+        if not doc.get('metadata', {}).get('title') or not doc.get('metadata', {}).get('abstract'):
             continue
-            
-        # Use middle portion of text as query to avoid exact matches
-        start_idx = len(text_words) // 4
-        end_idx = start_idx + min(10, len(text_words) // 2)
-        query_words = text_words[start_idx:end_idx]
-        query = ' '.join(query_words)
         
-        # Add domain-specific terms from ALL available metadata (matches training)
-        if 'metadata' in doc:
-            metadata = doc['metadata']
-            metadata_terms = []
-            
-            # Add field of study
-            fields = metadata.get('fieldsOfStudy', [])
-            if fields and len(fields) > 0:
-                main_field = fields[0] if isinstance(fields[0], str) else str(fields[0])
-                metadata_terms.append(main_field)
-            
-            # Add venue information
-            venue = metadata.get('venue', '')
-            if venue and isinstance(venue, str) and len(venue.strip()) > 0:
-                # Use venue abbreviation or first word for conciseness
-                venue_term = venue.strip().split()[0] if ' ' in venue else venue.strip()
-                metadata_terms.append(venue_term)
-            
-            # Add year information
-            year = metadata.get('year')
-            if year and isinstance(year, (int, float)):
-                metadata_terms.append(str(int(year)))
-            
-            # Add author information (first author's last name)
-            authors = metadata.get('authors', [])
-            if authors and len(authors) > 0:
-                first_author = authors[0]
-                if isinstance(first_author, dict) and 'name' in first_author:
-                    author_name = first_author['name']
-                    # Extract last name (assuming "First Last" format)
-                    if ' ' in author_name:
-                        last_name = author_name.split()[-1]
-                        metadata_terms.append(last_name)
-                elif isinstance(first_author, str):
-                    # Handle string author names
-                    if ' ' in first_author:
-                        last_name = first_author.split()[-1]
-                        metadata_terms.append(last_name)
-            
-            # Combine metadata terms with query (limit to avoid overly long queries)
-            if metadata_terms:
-                # Use up to 3 metadata terms to keep queries reasonable (matches training)
-                selected_terms = metadata_terms[:3]
-                metadata_prefix = ' '.join(selected_terms)
-                query = f"{metadata_prefix} {query}"
+        # Generate realistic query
+        query = generate_realistic_query(doc)
+        
+        # Skip if query is too short or generic
+        if len(query.strip()) < 3 or query == "research paper":
+            continue
+        
+        # Generate user filters for this query
+        user_filters = generate_user_filters(doc)
         
         queries[qid] = query
+        user_filters_list[qid] = user_filters
         
-        # Create relevance judgments (the source doc is highly relevant)
-        qrels[qid] = {doc_id: 1}  # Binary relevance
+        # Create relevance judgments - the source document is relevant
+        # But also find other potentially relevant documents based on similar topics
+        qrels[qid] = {doc_id: 1}  # Source document is relevant
         
-    return queries, qrels
+        # Optional: Add other documents with similar fields of study as partially relevant
+        source_fields = set(doc.get('metadata', {}).get('fieldsOfStudy', []))
+        if source_fields:
+            similar_count = 0
+            for other_idx, other_doc in enumerate(documents):
+                if other_idx == doc_idx or similar_count >= 3:  # Limit to 3 additional relevant docs
+                    continue
+                
+                other_fields = set(other_doc.get('metadata', {}).get('fieldsOfStudy', []))
+                if source_fields & other_fields:  # If fields overlap
+                    # Check if titles have common terms (simple similarity check)
+                    source_title_terms = set(extract_key_terms(doc.get('metadata', {}).get('title', ''), 5))
+                    other_title_terms = set(extract_key_terms(other_doc.get('metadata', {}).get('title', ''), 5))
+                    
+                    if len(source_title_terms & other_title_terms) >= 1:  # At least 1 common term
+                        qrels[qid][str(other_idx)] = 1  # Also relevant
+                        similar_count += 1
+    
+    return queries, qrels, user_filters_list
 
 
 def permutation_test_for_paired_samples(scores_a, scores_b, iterations=10_000):
@@ -277,11 +355,16 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
             documents.append(json.loads(line.strip()))
     print(f"Loaded {len(documents)} documents")
     
-    # Create synthetic queries and qrels
-    print("Creating synthetic queries and relevance judgments...")
-    queries, qrels = create_synthetic_qrels(documents, num_queries)
+    # Create realistic queries and qrels
+    print("Creating realistic queries and relevance judgments...")
+    queries, qrels, user_filters_list = create_realistic_qrels(documents, num_queries)
     print(f"Created {len(queries)} query-document pairs")
-    print()
+    
+    # Show some example filters
+    print("\nExample user filters:")
+    for i, (qid, filters) in enumerate(list(user_filters_list.items())[:3]):
+        print(f"{i+1}. Query '{qid}': {queries[qid]}")
+        print(f"   Filters: {filters}")
     
     # Load base model components
     print("Loading base model components...")
@@ -315,12 +398,12 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     
     # Evaluate base model
     print("Evaluating base model...")
-    base_results, base_times = base_retriever.retrieve(queries, top_k)
+    base_results, base_times = base_retriever.retrieve(queries, user_filters_list, top_k)
     
     # Evaluate fine-tuned model if available
     if compare_models:
         print("Evaluating fine-tuned model...")
-        ft_results, ft_times = ft_retriever.retrieve(queries, top_k)
+        ft_results, ft_times = ft_retriever.retrieve(queries, user_filters_list, top_k)
     
     # Calculate BEIR metrics using pytrec_eval
     k_values = [top_k]
