@@ -266,12 +266,12 @@ def train_model(
     total_steps = len(dataloader) * epochs
     
     print(f"Training configuration:")
-    print(f"  📊 Epochs: {epochs}")
-    print(f"  🔥 Warmup steps: {warmup_steps}")
-    print(f"  📦 Batch size: {dataloader.batch_size}")
-    print(f"  🔄 Batches per epoch: {len(dataloader)}")
-    print(f"  ⚡ Total steps: {total_steps}")
-    print(f"  💪 GPUs: {torch.cuda.device_count()}")
+    print(f"Epochs: {epochs}")
+    print(f"Warmup steps: {warmup_steps}")
+    print(f"Batch size: {dataloader.batch_size}")
+    print(f"Batches per epoch: {len(dataloader)}")
+    print(f"Total steps: {total_steps}")
+    print(f"GPUs: {torch.cuda.device_count()}")
     
     # Train the model
     model.fit(
@@ -299,7 +299,7 @@ def main():
     Main training function using config.yaml.
     """
     print("=" * 60)
-    print("🚀 Fine-tuning Semantic Encoder")
+    print("Fine-tuning Semantic Encoder")
     print("=" * 60)
     
     # Load configuration
@@ -326,20 +326,7 @@ def main():
         config=config
     )
     
-    print("🎉 Fine-tuning completed!")
-    print(f"Fine-tuned model available at: {config['finetune']['output_path']}")
-    print("\nExpected improvements:")
-    print("✅ Better text-snippet to document matching")
-    print("✅ Perfect training-evaluation alignment")
-    print("✅ Realistic query understanding (partial knowledge)")
-    print("✅ Enhanced semantic similarity for academic content")
-    print("✅ Domain-specific vocabulary understanding") 
-    print("✅ Improved performance on evaluation metrics")
-    print("\nNext steps:")
-    print("1. Generate fine-tuned embeddings")
-    print("2. Test with evaluation script")
-    print("3. Compare performance with base model")
-
+    print("Fine-tuning completed!")
 
 if __name__ == "__main__":
     main() 

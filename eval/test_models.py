@@ -20,7 +20,6 @@ import pytrec_eval
 import yaml
 from typing import Dict, List, Any
 
-# Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from retrieval.hybrid_retriever import load_retrieval_components, hybrid_retrieve
@@ -30,11 +29,6 @@ from sentence_transformers import SentenceTransformer
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Evaluate hybrid retrieval system with BEIR methodology"
-    )
-    parser.add_argument(
-        "--dataset",
-        default="test",
-        help="Dataset split to use (train/test)"
     )
     parser.add_argument(
         "--num-queries",
@@ -222,7 +216,7 @@ def print_scores(all_scores):
     return has_significant_difference
 
 
-def evaluate_hybrid_retrieval(dataset_split="test", num_queries=100, top_k=10):
+def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     """Main evaluation function using BEIR methodology."""
     
     print("BEIR-Style Hybrid Retrieval Evaluation")
@@ -232,37 +226,21 @@ def evaluate_hybrid_retrieval(dataset_split="test", num_queries=100, top_k=10):
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
     
-    # Determine dataset path
-    if dataset_split == "test":
-        dataset_path = config["dataset"]["test_path"]
-    else:
-        dataset_path = config["dataset"]["train_path"]
-    
-    print(f"Dataset: {dataset_path}")
     print(f"Queries to evaluate: {num_queries}")
     print(f"Top-k retrieval: {top_k}")
     print()
     
-    # Load documents for creating synthetic evaluation
-    print("Loading documents for synthetic query generation...")
+    # Load full dataset for evaluation
+    print("Loading dataset for evaluation...")
     documents = []
-    with open(dataset_path, 'r') as f:
+    with open(config["dataset"]["processed_path"], 'r') as f:
         for line in f:
             documents.append(json.loads(line.strip()))
     print(f"Loaded {len(documents)} documents")
     
-    # Note: We need to use the same documents that are in the retrieval system
-    # The retrieval system uses the full processed_docs.jsonl, not the test split
-    print("Loading full dataset for proper evaluation...")
-    full_documents = []
-    with open(config["dataset"]["processed_path"], 'r') as f:
-        for line in f:
-            full_documents.append(json.loads(line.strip()))
-    print(f"Loaded {len(full_documents)} full documents (this matches retrieval system)")
-    
     # Create synthetic queries and qrels
     print("Creating synthetic queries and relevance judgments...")
-    queries, qrels = create_synthetic_qrels(full_documents, num_queries)
+    queries, qrels = create_synthetic_qrels(documents, num_queries)
     print(f"Created {len(queries)} query-document pairs")
     print()
     
@@ -362,15 +340,14 @@ if __name__ == "__main__":
     
     try:
         all_scores = evaluate_hybrid_retrieval(
-            dataset_split=args.dataset,
             num_queries=args.num_queries,
             top_k=args.top_k
         )
         
-        print("\n✅ BEIR-style evaluation completed successfully")
+        print("\nBEIR-style evaluation completed successfully")
         
     except Exception as e:
-        print(f"❌ Error during evaluation: {e}")
+        print(f"Error during evaluation: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1) 

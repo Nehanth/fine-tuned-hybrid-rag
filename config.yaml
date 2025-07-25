@@ -1,13 +1,10 @@
 model:
-  encoder: "all-MiniLM-L6-v2"  # Base model or path to fine-tuned model
+  encoder: "sentence-transformers/all-MiniLM-L6-v2"  # Base model
   device: "auto"  # auto, cpu, cuda
 
 dataset:
   name: "leminda-ai/s2orc_small"
   processed_path: "data/processed_docs.jsonl"
-  train_path: "data/train_docs.jsonl"
-  test_path: "data/test_docs.jsonl"
-  train_ratio: 0.8  # 80% for training, 20% for testing
 
 # Scoring weights for hybrid retrieval
 scoring:
@@ -31,15 +28,14 @@ embeddings:
 # Fine-tuning configuration
 finetune:
   # Training data
-  pairs_path: "finetune/pairs.pkl"
-  max_pairs: 50000  # Limit for fast training
+  max_pairs: 50000
   
   # Model training
   output_path: "finetune/model/"
   epochs: 1
   batch_size: 32
-  warmup_steps: 50
+  warmup_steps: 100
 
-  
   # Multi-GPU settings
-  use_multi_gpu: false  # Set to true for multi-GPU training
+  use_multi_gpu: false
+

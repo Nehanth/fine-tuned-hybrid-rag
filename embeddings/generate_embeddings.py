@@ -1,3 +1,6 @@
+"""
+Generate Pre-Finetuned Dense and Sparse Embeddings
+"""
 import json
 import numpy as np
 import torch
@@ -56,7 +59,7 @@ def generate_dense_embeddings(documents, config):
         show_progress_bar=True,
         batch_size=batch_size if device == "cuda" else batch_size // 2,
         convert_to_numpy=True,
-        normalize_embeddings=normalize
+        normalize_embeddings=normalize # Normalize embeddings to unit length
     )
     
     print(f"Generated embeddings shape: {embeddings.shape}")
@@ -68,7 +71,7 @@ def generate_sparse_embeddings(documents, max_features=10000):
     """Generate sparse TF-IDF embeddings."""
     print(f"Generating TF-IDF embeddings with max_features={max_features}")
     
-    vectorizer = TfidfVectorizer(
+    vectorizer = TfidfVectorizer( #imported from sklearn to create sparse embeddings
         max_features=max_features,
         stop_words='english',
         lowercase=True,
@@ -123,11 +126,8 @@ def main():
     # Save embeddings using config paths
     save_embeddings(dense_embeddings, tfidf_vectorizer, doc_ids, config)
     
-    print("\n" + "=" * 60)
-    print("Embeddings ready for retrieval system!")
-    print("Next steps:")
-    print("1. Test retrieval: python test_retrieval.py")
-    print("2. Run evaluation: python eval/beir_evaluation.py")
+    print("=" * 60)
+    print("Pre finetuned dense embeddings generated and sparse embeddings generated")
     print("=" * 60)
 
 if __name__ == "__main__":

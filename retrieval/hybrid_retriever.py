@@ -94,15 +94,15 @@ def hybrid_retrieve(query: str,
     Retrieve top-k documents for a given query using hybrid retrieval.
     
     Args:
-        query (str): Query text
-        components (Dict): Dictionary of loaded retrieval components
-        user_filters (dict): User-specified filters and preferences
-        top_k (int): Number of top documents to return (uses config default if None)
-        candidate_pool_size (int): Size of candidate pool for dense retrieval (uses config default if None)
+        query: Query text
+        components: Dictionary of loaded retrieval components
+        user_filters: User-specified filters and preferences
+        top_k: Number of top documents to return (uses config default if None)
+        candidate_pool_size: Size of candidate pool for dense retrieval (uses config default if None)
         weights (tuple): Weights for (dense, sparse, boost) score combination (uses config default if None)
         
     Returns:
-        List[Dict]: List of retrieved documents with scores and metadata
+        List: List of retrieved documents with scores and metadata
     """
     if user_filters is None:
         user_filters = {}
