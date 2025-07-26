@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import random
 from typing import List, Optional
-from sentence_transformers import SentenceTransformer, InputExample, losses
+from sentence_transformers import SentenceTransformer, InputExample, losses, SentencesDataset
 from torch.utils.data import DataLoader
 from datasets import load_dataset
 from tqdm import tqdm
@@ -231,7 +231,7 @@ def setup_model(config: dict) -> SentenceTransformer:
     
     model = SentenceTransformer(model_name, device=device)
     
-    # Enable multi-GPU if available and requested
+    # Enable multi-GPU if available
     if use_multi_gpu and torch.cuda.device_count() > 1:
         print(f"Enabling multi-GPU training with {torch.cuda.device_count()} GPUs")
         
@@ -264,7 +264,6 @@ def create_dataloader(pairs: List[InputExample], model: SentenceTransformer, bat
     """
     print(f"Creating DataLoader with batch_size={batch_size}")
     
-    from sentence_transformers.datasets import SentencesDataset
     
     dataset = SentencesDataset(pairs, model)
     dataloader = DataLoader(
