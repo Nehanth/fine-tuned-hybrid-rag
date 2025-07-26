@@ -132,9 +132,8 @@ def save_file_paths(output_dir: str, config: dict, steps_completed: list):
         f.write("-" * 20 + "\n")
         if "evaluation" in steps_completed:
             f.write(f"✓ Evaluation output: {output_dir}/evaluation_output.txt\n")
-            f.write(f"✓ Evaluation results: {output_dir}/evaluation_results.txt\n")
         else:
-            f.write(f"✗ Evaluation files: (not generated)\n")
+            f.write(f"✗ Evaluation output: (not generated)\n")
         f.write("\n")
         
         # Summary files
@@ -288,12 +287,7 @@ def main():
             print("-" * 40)
             print(eval_output)
         
-        # Save evaluation results to separate file
-        eval_results_file = f"{output_dir}/evaluation_results.txt"
-        with open(eval_results_file, 'w') as f:
-            f.write(eval_output)
-        
-        evaluation_results = {"status": "completed", "results_file": eval_results_file}
+        evaluation_results = {"status": "completed", "results_file": f"{output_dir}/evaluation_output.txt"}
         
     else:
         print("Evaluation failed!")

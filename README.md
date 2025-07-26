@@ -97,6 +97,8 @@ The system uses contrastive learning with automatically generated query-document
 │   └── train_query_encoder.py         # Model fine-tuning
 ├── eval/
 │   └── test_models.py                 # Evaluation
+├── how_to_use/
+│   └── how_to_use.ipynb               # Shows how to use the retrival system
 ├── results/
 │   └── run_YYYYMMDD_HHMMSS/          #  Results
 ├── config.yaml                       # Configuration file
@@ -111,14 +113,10 @@ The system uses BEIR methodology with standard metrics:
 - **NDCG@k**: Normalized Discounted Cumulative Gain
 - **Statistical significance testing** using permutation tests
 
-## Output Files
+## How to use
 
-After running the pipeline, check the results directory:
+Check out the how_to_use/ folder for examples. The notebook shows how to use the retrieval system with code examples.
 
-```
-results/run_20250124_143022/
-├── evaluation_output.txt        # Raw evaluation output
-├── evaluation_results.txt       # Clean evaluation results
-├── generated_files.txt          # Paths to all generated files
-└── run_summary.json             # Pipeline execution summary
-```
+## Notes
+
+This implementation performs well in evaluation, which is different from the main branch evaluation. Here we generate pairs from the `generate_pairs.py` file in a way that mimics human-like queries by hardcoding certain queries with various patterns. It performs significantly better than the base model according to the evaluation and the `how_to_use` notebook. If you train with real or AI-generated synthetic data, it would certainly make the model more accurate. This is just an example to show that it works.
