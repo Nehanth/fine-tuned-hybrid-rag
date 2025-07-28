@@ -8,6 +8,7 @@ import yaml
 import os
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+import torch
 
 
 def load_config() -> dict:
@@ -39,7 +40,7 @@ def load_finetuned_model(model_path, device):
     
     # Handle device configuration
     if device == "auto":
-        import torch
+        
         device = "cuda" if torch.cuda.is_available() else "cpu"
     
     model = SentenceTransformer(model_path, device=device)
