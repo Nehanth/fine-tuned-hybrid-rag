@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-from .metadata_boosting import compute_boost, batch_compute_boost, filter_documents
+from .metadata_boosting import batch_compute_boost, filter_documents
 
 
 def load_config():
