@@ -1,5 +1,7 @@
 """
 Generate realistic training pairs for fine-tuning the semantic encoder.
+
+Got from AI, and modified to fit our needs.
 """
 
 import json
@@ -47,7 +49,7 @@ def extract_key_terms(text: str, max_terms: int = 5) -> List[str]:
     }
     
     # Extract meaningful terms (2+ characters, not all numbers)
-    words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9-]*\b', text.lower()) #extracts technical terms from academic text. Let me break it down:
+    words = re.findall(r'\b[a-zA-Z][a-zA-Z0-9-]*\b', text.lower()) #extracts technical terms from academic text
     key_terms = []
     
     for word in words:

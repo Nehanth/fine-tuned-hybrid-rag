@@ -20,6 +20,8 @@ import pytrec_eval
 import yaml
 import random
 from typing import Dict, List, Any
+from scipy.stats import permutation_test
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -249,7 +251,6 @@ def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
 
 def permutation_test_for_paired_samples(scores_a, scores_b, iterations=10_000):
     """Performs a permutation test of a given statistic on provided data."""
-    from scipy.stats import permutation_test
     
     def _statistic(x, y, axis):
         return np.mean(x, axis=axis) - np.mean(y, axis=axis)

@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from typing import List, Optional
 from sentence_transformers import SentenceTransformer, InputExample, losses
+from sentence_transformers.datasets import SentencesDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -112,8 +113,6 @@ def create_dataloader(pairs: List[InputExample], model: SentenceTransformer, bat
         DataLoader: DataLoader for training
     """
     print(f"Creating DataLoader with batch_size={batch_size}")
-    
-    from sentence_transformers.datasets import SentencesDataset
     
     dataset = SentencesDataset(pairs, model)
     dataloader = DataLoader(
