@@ -88,50 +88,50 @@ def save_file_paths(output_dir: str, config: dict, steps_completed: list):
         f.write("DATASET FILES:\n")
         f.write("-" * 20 + "\n")
         if "data_processing" in steps_completed:
-            f.write(f"✓ Processed documents: {config['dataset']['processed_path']}\n")
+            f.write(f"Processed documents: {config['dataset']['processed_path']}\n")
         else:
-            f.write(f"✗ Processed documents: {config['dataset']['processed_path']} (not generated)\n")
+            f.write(f"Processed documents: {config['dataset']['processed_path']} (not generated)\n")
         f.write("\n")
         
         # Embedding files
         f.write("EMBEDDING FILES:\n")
         f.write("-" * 20 + "\n")
         if "base_embeddings" in steps_completed:
-            f.write(f"✓ Base dense embeddings: {config['embeddings']['dense_path']}\n")
-            f.write(f"✓ TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']}\n")
+            f.write(f"Base dense embeddings: {config['embeddings']['dense_path']}\n")
+            f.write(f"TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']}\n")
         else:
-            f.write(f"✗ Base dense embeddings: {config['embeddings']['dense_path']} (not generated)\n")
-            f.write(f"✗ TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']} (not generated)\n")
+            f.write(f"Base dense embeddings: {config['embeddings']['dense_path']} (not generated)\n")
+            f.write(f"TF-IDF vectorizer: {config['embeddings']['tfidf_vectorizer_path']} (not generated)\n")
         
         if "finetuned_embeddings" in steps_completed:
-            f.write(f"✓ Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']}\n")
+            f.write(f"Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']}\n")
         else:
-            f.write(f"✗ Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']} (not generated)\n")
+            f.write(f"Fine-tuned embeddings: {config['embeddings']['dense_finetuned_path']} (not generated)\n")
         f.write("\n")
         
         # Model files
         f.write("MODEL FILES:\n")
         f.write("-" * 20 + "\n")
         if "fine_tuning" in steps_completed:
-            f.write(f"✓ Fine-tuned model: {config['finetune']['output_path']}\n")
+            f.write(f"Fine-tuned model: {config['finetune']['output_path']}\n")
         else:
-            f.write(f"✗ Fine-tuned model: {config['finetune']['output_path']} (not generated)\n")
+            f.write(f"Fine-tuned model: {config['finetune']['output_path']} (not generated)\n")
         f.write("\n")
         
         # Evaluation files
         f.write("EVALUATION FILES:\n")
         f.write("-" * 20 + "\n")
         if "evaluation" in steps_completed:
-            f.write(f"✓ Evaluation output: {output_dir}/evaluation_output.txt\n")
+            f.write(f"Evaluation output: {output_dir}/evaluation_output.txt\n")
         else:
-            f.write(f"✗ Evaluation output: (not generated)\n")
+            f.write(f"Evaluation output: (not generated)\n")
         f.write("\n")
         
         # Summary files
         f.write("SUMMARY FILES:\n")
         f.write("-" * 20 + "\n")
-        f.write(f"✓ Run summary: {output_dir}/run_summary.json\n")
-        f.write(f"✓ File paths: {output_dir}/generated_files.txt\n")
+        f.write(f"Run summary: {output_dir}/run_summary.json\n")
+        f.write(f"File paths: {output_dir}/generated_files.txt\n")
 
 
 def save_run_summary(output_dir: str, config: dict, config_path: str, steps_completed: list, 
