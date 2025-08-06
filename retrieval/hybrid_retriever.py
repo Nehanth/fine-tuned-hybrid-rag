@@ -8,12 +8,16 @@ import numpy as np
 import joblib
 import torch
 import yaml
+import os
+import sys
 from typing import Dict, List, Any, Tuple, Optional
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+from finetune.train_weights import WeightLearner
 
 from .metadata_boosting import batch_compute_boost, filter_documents
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def load_config():
@@ -25,6 +29,7 @@ def load_config():
 def load_retrieval_components(config: Optional[Dict] = None) -> Dict[str, Any]:
     """
     Load all components needed for hybrid retrieval using config.yaml.
+    Always loads learned weights if available.
     
     Args:
         config (dict, optional): Configuration dictionary. If None, loads from config.yaml
@@ -71,9 +76,7 @@ def load_retrieval_components(config: Optional[Dict] = None) -> Dict[str, Any]:
     sentence_model = SentenceTransformer(model_name, device=device)
     print(f"Using device: {device}")
     
-    print("All components loaded successfully!")
-    
-    return {
+    components = {
         "dense_embeddings": dense_embeddings,
         "tfidf_vectorizer": tfidf_vectorizer,
         "documents": documents,
@@ -82,24 +85,42 @@ def load_retrieval_components(config: Optional[Dict] = None) -> Dict[str, Any]:
         "model_name": model_name,
         "config": config
     }
+    
+    # Load required learned weights
+    learned_weights_path = "finetune/learned_weights.pth"
+    if os.path.exists(learned_weights_path):
+        print("Loading learned combination weights...")
+        weight_learner = WeightLearner()
+        weight_learner.load_state_dict(torch.load(learned_weights_path, map_location='cpu'))
+        weight_learner.eval()
+        components["weight_learner"] = weight_learner
+        
+        # Show what weights were learned
+        learned_weights = weight_learner.get_weights()
+        print(f"Learned weights loaded: dense={learned_weights[0]:.3f}, sparse={learned_weights[1]:.3f}, boost={learned_weights[2]:.3f}")
+    else:
+        print(f"Learned weights not found at {learned_weights_path}")
+        print("   Run 'python finetune/train_weights.py' first to train weights")
+        raise FileNotFoundError(f"Learned weights required but not found at {learned_weights_path}")
+    
+    print("All components loaded successfully!")
+    return components
 
 
 def hybrid_retrieve(query: str, 
                    components: Dict[str, Any],
                    user_filters: Optional[Dict[str, Any]] = None,
                    top_k: Optional[int] = None,
-                   candidate_pool_size: Optional[int] = None,
-                   weights: Optional[Tuple[float, float, float]] = None) -> List[Dict[str, Any]]:
+                   candidate_pool_size: Optional[int] = None) -> List[Dict[str, Any]]:
     """
-    Retrieve top-k documents for a given query using hybrid retrieval.
+    Retrieve top-k documents for a given query using hybrid retrieval
     
     Args:
         query: Query text
-        components: Dictionary of loaded retrieval components
+        components: Dictionary of loaded retrieval components (include weight_learner)
         user_filters: User-specified filters and preferences
         top_k: Number of top documents to return (uses config default if None)
         candidate_pool_size: Size of candidate pool for dense retrieval (uses config default if None)
-        weights (tuple): Weights for (dense, sparse, boost) score combination (uses config default if None)
         
     Returns:
         List: List of retrieved documents with scores and metadata
@@ -113,12 +134,10 @@ def hybrid_retrieve(query: str,
         top_k = config["retrieval"]["top_k"]
     if candidate_pool_size is None:
         candidate_pool_size = config["retrieval"]["candidate_pool_size"]
-    if weights is None:
-        weights = (
-            config["scoring"]["dense_weight"],
-            config["scoring"]["sparse_weight"], 
-            config["scoring"]["boost_weight"]
-        )
+    
+    # Ensure we have learned weights
+    if "weight_learner" not in components:
+        raise ValueError("weight_learner not found in components. System requires learned weights!")
     
     print(f"Retrieving top-{top_k} documents for query: '{query[:50]}...'")
     
@@ -158,17 +177,23 @@ def hybrid_retrieve(query: str,
     # Step 5: Apply metadata boosting
     print("Applying metadata boosting...")
     candidate_metadata = [components["documents"][i]["metadata"] for i in candidate_indices]
-    boost_scores = np.array(batch_compute_boost(candidate_metadata, user_filters))
+    boost_scores_raw = np.array(batch_compute_boost(candidate_metadata, user_filters))
+    # Normalize boost scores to match training (1.0-1.5 → 0.0-1.0)
+    boost_scores = (boost_scores_raw - 1.0) / 0.5
     
-    # Step 6: Combine scores (inline scoring logic)
-    print("Combining scores...")
-    dense_weight, sparse_weight, boost_weight = weights
-    final_scores = []
-    for dense, sparse, boost in zip(dense_similarities, sparse_similarities, boost_scores):
-        base_score = (dense_weight * dense + sparse_weight * sparse)
-        final_score = base_score + boost_weight * boost
-        final_scores.append(final_score)
-    final_scores = np.array(final_scores)
+    # Step 6: Combine scores using learned weights
+    print("Combining scores with learned weights...")
+    
+    dense_tensor = torch.tensor(dense_similarities, dtype=torch.float32)
+    sparse_tensor = torch.tensor(sparse_similarities, dtype=torch.float32)
+    boost_tensor = torch.tensor(boost_scores, dtype=torch.float32)
+    
+    with torch.no_grad():
+        final_scores = components["weight_learner"](dense_tensor, sparse_tensor, boost_tensor).numpy()
+    
+    # Show what weights were used
+    learned_weights = components["weight_learner"].get_weights()
+    print(f"   Learned weights: dense={learned_weights[0]:.3f}, sparse={learned_weights[1]:.3f}, boost={learned_weights[2]:.3f}")
     
     # Step 7: Get top-k results
     top_k_indices = np.argsort(final_scores)[::-1][:top_k]
@@ -184,7 +209,7 @@ def hybrid_retrieve(query: str,
             "final_score": float(final_scores[idx]),
             "dense_score": float(dense_similarities[idx]),
             "sparse_score": float(sparse_similarities[idx]),
-            "boost_score": float(boost_scores[idx])
+            "boost_score": float(boost_scores_raw[idx])     
         }
         doc["rank"] = i + 1
         doc["doc_id"] = doc_idx

@@ -1,0 +1,55 @@
+{
+  "timestamp": "2025-08-05T19:37:23.091029",
+  "config_file": "config.yaml",
+  "config": {
+    "model": {
+      "encoder": "sentence-transformers/all-MiniLM-L6-v2",
+      "device": "auto"
+    },
+    "dataset": {
+      "name": "leminda-ai/s2orc_small",
+      "processed_path": "data/processed_docs.jsonl"
+    },
+    "neural_fusion": {
+      "hidden_dim": 64,
+      "learning_rate": 0.001,
+      "epochs": 100,
+      "batch_size": 64
+    },
+    "retrieval": {
+      "top_k": 10,
+      "candidate_pool_size": 1000
+    },
+    "embeddings": {
+      "dense_path": "embeddings/dense.npy",
+      "dense_finetuned_path": "embeddings/dense_finetuned.npy",
+      "tfidf_vectorizer_path": "embeddings/tfidf_vectorizer.pkl",
+      "batch_size": 256,
+      "normalize_embeddings": true
+    },
+    "finetune": {
+      "max_pairs": 50000,
+      "output_path": "finetune/model/",
+      "epochs": 1,
+      "batch_size": 32,
+      "warmup_steps": 100,
+      "use_multi_gpu": false
+    }
+  },
+  "steps_completed": [
+    "data_processing",
+    "base_embeddings",
+    "pair_generation",
+    "fine_tuning",
+    "finetuned_embeddings",
+    "weight_learning"
+  ],
+  "evaluation_results": {
+    "status": "failed",
+    "exit_code": 512
+  },
+  "system_info": {
+    "python_version": "3.12.3 (main, Jun 18 2025, 17:59:45) [GCC 13.3.0]",
+    "working_directory": "/home/ubuntu/ilab_stuff/fine-tuned-hybrid-rag"
+  }
+}

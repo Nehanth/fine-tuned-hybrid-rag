@@ -1,0 +1,30 @@
+Generated Files from Fine-Tuned Hybrid RAG Pipeline
+============================================================
+Generated on: 2025-08-05 19:37:23
+
+DATASET FILES:
+--------------------
+Processed documents: data/processed_docs.jsonl
+
+EMBEDDING FILES:
+--------------------
+Base dense embeddings: embeddings/dense.npy
+TF-IDF vectorizer: embeddings/tfidf_vectorizer.pkl
+Fine-tuned embeddings: embeddings/dense_finetuned.npy
+
+TRAINING FILES:
+--------------------
+Training pairs: finetune/realistic_training_pairs.json
+
+MODEL FILES:
+--------------------
+Fine-tuned model: finetune/model/
+
+EVALUATION FILES:
+--------------------
+Evaluation output: (not generated)
+
+SUMMARY FILES:
+--------------------
+Run summary: results/run_20250805_184728/run_summary.json
+File paths: results/run_20250805_184728/generated_files.txt

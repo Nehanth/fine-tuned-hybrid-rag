@@ -8,6 +8,7 @@ finetune/pairs.pkl
 data/test_docs.jsonl
 data/train_docs.jsonl
 finetune/realistic_training_pairs.json
+finetune/learned_weights.pth
 
 # Python cache
 __pycache__/

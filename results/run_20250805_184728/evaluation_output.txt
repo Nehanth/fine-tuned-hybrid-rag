@@ -1,0 +1,2 @@
+usage: test_models.py [-h] [--num-queries NUM_QUERIES] [--top-k TOP_K]
+test_models.py: error: unrecognized arguments: --compare-weights

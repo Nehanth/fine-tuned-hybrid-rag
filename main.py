@@ -11,7 +11,8 @@ The pipeline includes:
 2. Base embedding generation
 3. Model fine-tuning
 4. Fine-tuned embedding generation
-5. Eval of Pre and Post-training Retrieval
+5. Learn Optimal Combination Weights
+6. Eval of Pre and Post-training Retrieval
 """
 
 import os
@@ -243,7 +244,19 @@ def main():
         print("Pipeline failed at fine-tuned embedding generation")
         return 1
     
-    # Step 6: Verify Required Files
+    # Step 6: Learn Optimal Combination Weights (NEW!)
+    success = run_step(
+        "Learn Optimal Combination Weights",
+        "python finetune/train_weights.py",
+        skip=False
+    )
+    if success:
+        steps_completed.append("weight_learning")
+    else:
+        print("Pipeline failed at weight learning step")
+        return 1
+    
+    # Step 7: Verify Required Files
     print("\n" + "=" * 80)
     print("VERIFICATION: Checking Required Files")
     print("=" * 80)
@@ -254,6 +267,7 @@ def main():
         (config["embeddings"]["tfidf_vectorizer_path"], "TF-IDF vectorizer"),
         (config["finetune"]["output_path"], "Fine-tuned model"),
         (config["embeddings"]["dense_finetuned_path"], "Fine-tuned embeddings"),
+        ("finetune/learned_weights.pth", "Learned combination weights"),
     ]
     
     all_files_exist = True
@@ -265,9 +279,9 @@ def main():
         print("\nSome required files are missing. Cannot proceed with evaluation.")
         return 1
     
-    # Step 7: Evaluation
+    # Step 8: Evaluation with Weight Comparison
     print("\n" + "=" * 80)
-    print("STEP: Model Evaluation")
+    print("STEP: Model Evaluation with Weight Comparison")
     print("=" * 80)
     
     eval_command = f"python eval/test_models.py --num-queries 100"

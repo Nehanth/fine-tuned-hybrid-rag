@@ -39,17 +39,18 @@ This runs the complete pipeline using settings from `config.yaml`.
 
 ### Configuration
 
-You can customize the encoder, scoring weights, and fine-tuning parameters by editing `config.yaml`:
+You can customize the encoder, neural fusion settings, and fine-tuning parameters by editing `config.yaml`:
 
 ```yaml
 model:
   encoder: "sentence-transformers/all-MiniLM-L6-v2"  # Any Sentence Transformers model
   device: "auto"
 
-scoring:
-  dense_weight: 0.6    # Adjust semantic search weight
-  sparse_weight: 0.3   # Adjust keyword search weight  
-  boost_weight: 0.1    # Adjust metadata boost weight
+neural_fusion:
+  hidden_dim: 64       # Hidden layer size for weight learning
+  learning_rate: 0.001 # Training learning rate
+  epochs: 100          # Training epochs
+  batch_size: 64       # Training batch size
 
 finetune:
   max_pairs: 50000     # Number of training pairs

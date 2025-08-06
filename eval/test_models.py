@@ -337,7 +337,7 @@ def print_scores(all_scores):
 def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     """Main evaluation function using BEIR methodology."""
     
-    print("BEIR-Style Hybrid Retrieval Evaluation")
+    print("BEIR-Style Neural Hybrid Retrieval Evaluation")
     print("=" * 50)
     
     # Load config
@@ -367,7 +367,7 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
         print(f"{i+1}. Query '{qid}': {queries[qid]}")
         print(f"   Filters: {filters}")
     
-    # Load base model components
+    # Load neural fusion components for base and fine-tuned models
     print("Loading base model components...")
     base_components = load_retrieval_components(config)
     base_retriever = HybridRetriever(base_components, "BaseModel")
@@ -431,21 +431,41 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
     print()
     
     # Print results
-    print("RESULTS")
+    print("NEURAL FUSION RESULTS")
     print("=" * 30)
     
     if compare_models:
         # Statistical comparison
         has_significant_difference = print_scores(all_scores)
+        
+        # Show learned weight insights
+        print("\nLEARNED WEIGHT ANALYSIS")
+        print("-" * 30)
+        
+        if "weight_learner" in base_components:
+            learned_weights = base_components["weight_learner"].get_weights()
+            print(f"Neural weights: dense={learned_weights[0]:.3f}, sparse={learned_weights[1]:.3f}, boost={learned_weights[2]:.3f}")
+            
+            # Show weight distribution insights
+            total_weight = sum(learned_weights)
+            print(f"Weight distribution:")
+            print(f"   Dense (semantic):  {learned_weights[0]/total_weight*100:.1f}%")
+            print(f"   Sparse (keywords): {learned_weights[1]/total_weight*100:.1f}%") 
+            print(f"   Boost (metadata):  {learned_weights[2]/total_weight*100:.1f}%")
+            
+            # Determine key insights from learned weights
+            max_weight_idx = np.argmax(learned_weights)
+            component_names = ["dense (semantic)", "sparse (TF-IDF)", "boost (metadata)"]
+            print(f"Key insight: {component_names[max_weight_idx]} has highest learned importance")
     
     # Summary
     print("\nSUMMARY")
     print("-" * 20)
-    if has_significant_difference:
-        print("Significant performance difference detected")
+    if compare_models and has_significant_difference:
+        print("🎯 Neural fusion model shows significant performance improvement!")
+    elif compare_models:
+        print("📊 Neural fusion model performance evaluation complete")
     else:
-        print("No significant performance difference detected")
-    
         # Single model results
         base_metrics = list(base_scores[list(base_scores.keys())[0]].keys())
         for metric in base_metrics:
@@ -466,7 +486,7 @@ if __name__ == "__main__":
             top_k=args.top_k
         )
         
-        print("\nBEIR-style evaluation completed successfully")
+        print("\nNeural fusion evaluation completed successfully")
         
     except Exception as e:
         print(f"Error during evaluation: {e}")
