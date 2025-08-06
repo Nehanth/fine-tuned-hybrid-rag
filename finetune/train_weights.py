@@ -13,7 +13,6 @@ import joblib
 import random
 from tqdm import tqdm
 
-# Add project root to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from retrieval.metadata_boosting import compute_boost
 
@@ -55,8 +54,6 @@ class WeightLearner(nn.Module):
         with torch.no_grad():
             return F.softmax(self.raw_weights, dim=0).numpy()
     
-
-
 
 class ContrastiveWeightDataset(Dataset):
     """Dataset for contrastive learning of combination weights."""
@@ -157,10 +154,10 @@ def create_contrastive_training_data():
     
     For each positive query-document pair, we:
     1. Compute scores for the positive document
-    2. Sample random documents as negatives on-the-fly during training
+    2. Sample random documents as negatives
     
     Returns:
-        List of positive examples and document corpus for negative sampling
+        List of positive examples with pre-computed negative scores
     """
     print("Creating contrastive training data for weight learning...")
     
@@ -184,7 +181,6 @@ def create_contrastive_training_data():
     print(f"Loaded {len(documents)} documents")
     
     # Create efficient text-to-metadata mapping
-    print("Creating text-to-metadata mapping...")
     text_to_metadata = {doc['text']: doc['metadata'] for doc in documents}
     
     # Load existing training pairs (only positives needed!)
@@ -231,8 +227,6 @@ def create_contrastive_training_data():
             neg_boost_raw = compute_boost(neg_doc['metadata'], neg_filters)
             neg_boost = (neg_boost_raw - 1.0) / 0.5  # Normalize 1.0-1.5 → 0.0-1.0
             
-
-            
             positive_examples.append({
                 'query': query,
                 'pos_dense': float(pos_dense),
@@ -249,7 +243,7 @@ def create_contrastive_training_data():
     
     print(f"Created {len(positive_examples)} positive examples for contrastive learning")
     
-    return positive_examples, documents, text_to_metadata
+    return positive_examples
 
 
 def contrastive_loss(pos_scores, neg_scores, margin=0.2):
@@ -281,7 +275,7 @@ def train_weights():
     print("=" * 60)
     
     # Create contrastive training data
-    positive_examples, documents, text_to_metadata = create_contrastive_training_data()
+    positive_examples = create_contrastive_training_data()
     
     if len(positive_examples) == 0:
         print("No training examples created. Check your data.")
