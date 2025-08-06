@@ -225,7 +225,7 @@ def create_training_data():
             continue
             
         # Get curated negative examples for this specific query
-        neg_texts = query_to_negatives[query][:2]  # Take up to 2 negatives
+        neg_texts = query_to_negatives[query][:2]
         neg_docs = []
         for neg_text in neg_texts:
             neg_metadata = text_to_metadata.get(neg_text)
