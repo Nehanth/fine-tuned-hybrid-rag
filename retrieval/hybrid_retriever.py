@@ -214,7 +214,8 @@ def hybrid_retrieve(query: str,
             "final_score": float(final_scores[idx]),
             "dense_score": float(dense_similarities[idx]),
             "sparse_score": float(sparse_similarities[idx]),
-            "boost_score": float(boost_scores_raw[idx])     
+            "boost_score": float(boost_scores[idx]),  # Use normalized boost scores
+            "boost_score_raw": float(boost_scores_raw[idx])  # Keep raw for reference
         }
         doc["rank"] = i + 1
         doc["doc_id"] = doc_idx
