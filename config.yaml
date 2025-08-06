@@ -8,7 +8,6 @@ dataset:
 
 # Neural fusion model settings (replaces fixed scoring weights)
 neural_fusion:
-  hidden_dim: 64       # Hidden layer size
   learning_rate: 0.001 # Training learning rate
   epochs: 100          # Training epochs
   batch_size: 64       # Training batch size

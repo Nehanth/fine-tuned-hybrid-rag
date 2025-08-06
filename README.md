@@ -8,18 +8,20 @@ This system implements a hybrid retrieval approach that:
 - Uses dense embeddings (Sentence Transformers) for semantic similarity
 - Applies sparse TF-IDF vectors for keyword matching
 - Incorporates metadata boosting based on dataset details
-- Fine-tunes the base model using contrastive learning
+- **Neural Fusion**: Automatically learns optimal combination weights using contrastive learning
+- Fine-tunes the semantic encoder using synthetic query-document pairs
 - Evaluates performance using [BEIR methodology](https://github.com/opendatahub-io/rag/blob/main/benchmarks/llama-stack-rag-with-beir/benchmark_beir_ls_vs_no_ls.py)
 
 ## Architecture
 
-The pipeline consists of five main stages:
+The pipeline consists of six main stages:
 
 1. **Data Processing**: Downloads and processes academic papers from S2ORC dataset
 2. **Base Embedding Generation**: Creates dense embeddings and TF-IDF vectors
 3. **Model Fine-tuning**: Trains the encoder using query-document pairs
 4. **Fine-tuned Embedding Generation**: Creates embeddings with the improved model
-5. **Evaluation**: Compares base vs fine-tuned performance using standard metrics
+5. **Neural Fusion Weight Learning**: Uses contrastive learning to discover optimal combination weights
+6. **Evaluation**: Compares base vs fine-tuned performance using standard metrics
 
 ## Quick Start
 
@@ -47,10 +49,9 @@ model:
   device: "auto"
 
 neural_fusion:
-  hidden_dim: 64       # Hidden layer size for weight learning
-  learning_rate: 0.001 # Training learning rate
-  epochs: 100          # Training epochs
-  batch_size: 64       # Training batch size
+  learning_rate: 0.001 # Learning rate for weight optimization
+  epochs: 100          # Training epochs for weight learning
+  batch_size: 64       # Batch size for contrastive learning
 
 finetune:
   max_pairs: 50000     # Number of training pairs
@@ -74,6 +75,10 @@ Applies TF-IDF vectorization for traditional keyword-based matching. This compon
 
 Enhances retrieval scores based on document metadata such as publication year, venue, authors, and field of study. Documents matching user preferences receive higher rankings in the final results.
 
+### Fusion Weight Learning
+
+Uses contrastive learning to automatically discover optimal combination weights for dense, sparse, and boost scores. The system learns from positive query-document pairs and randomly sampled negatives to find weights that best discriminate between relevant and irrelevant documents.
+
 ### Fine-tuning
 
 The system uses contrastive learning with automatically generated query-document pairs from the dataset. Training queries include metadata context (venue, year, authors, field) to improve retrieval performance.
@@ -95,7 +100,10 @@ The system uses contrastive learning with automatically generated query-document
 │   └── metadata_boosting.py           # Metadata filtering and boosting
 ├── finetune/
 │   ├── model/                         # Fine-tuned model checkpoints
-│   └── train_query_encoder.py         # Model fine-tuning
+│   ├── fusion_training_pairs.json     # High-quality positive pairs for weight learning
+│   ├── learned_weights.pth            # Learned fusion weights (Will get genereated)
+│   ├── train_query_encoder.py         # Semantic encoder fine-tuning
+│   └── train_weights.py               # Neural fusion weight learning
 ├── eval/
 │   └── test_models.py                 # Evaluation
 ├── how_to_use/
