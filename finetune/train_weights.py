@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import yaml
 import torch
@@ -11,11 +12,11 @@ from sentence_transformers import SentenceTransformer
 import joblib
 import random
 from tqdm import tqdm
-import sys
 
-# Add parent directory to path for imports
+# Add project root to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from retrieval.metadata_boosting import compute_boost
+
 
 
 class WeightLearner(nn.Module):
@@ -26,15 +27,10 @@ class WeightLearner(nn.Module):
     learns the optimal weights from training data.
     """
     
-    def __init__(self, initial_weights=None):
+    def __init__(self, initial_weights=[0.6, 0.3, 0.1]):
         super().__init__()
         
-        
-        if initial_weights is None:
-            initial_weights = [0.6, 0.3, 0.1] 
-        
         self.raw_weights = nn.Parameter(torch.tensor(initial_weights, dtype=torch.float32))
-        self.temperature = nn.Parameter(torch.tensor(1.0))
     
     def forward(self, dense_scores, sparse_scores, boost_scores):
         """
@@ -56,8 +52,7 @@ class WeightLearner(nn.Module):
                           weights[1] * sparse_scores + 
                           weights[2] * boost_scores)
         
-        # Apply learned temperature scaling
-        return combined_scores * self.temperature
+        return combined_scores
     
     def get_weights(self):
         """Get current learned weights as numpy array."""
@@ -187,12 +182,21 @@ def create_training_data():
     
     print(f"Loaded {len(documents)} documents")
     
+    # Create efficient text-to-metadata mapping
+    print("Creating text-to-metadata mapping...")
+    text_to_metadata = {doc['text']: doc['metadata'] for doc in documents}
+    
     # Load existing training pairs
-    print("Loading realistic training pairs...")
+    print("Loading fusion training pairs...")
     with open("finetune/fusion_training_pairs.json", 'r') as f:
         training_pairs = json.load(f)
     
-    print(f"Loaded {len(training_pairs)} training pairs")
+    # Load curated negative examples
+    print("Loading fusion negative pairs...")
+    with open("finetune/fusion_negative_pairs.json", 'r') as f:
+        negative_pairs = json.load(f)
+    
+    print(f"Loaded {len(training_pairs)} positive pairs and {len(negative_pairs)} negative pairs")
     
     training_examples = []
     
@@ -200,24 +204,33 @@ def create_training_data():
     max_pairs = min(3000, len(training_pairs))
     selected_pairs = random.sample(training_pairs, max_pairs)
     
+    # Create query-to-negative mapping for efficiency
+    query_to_negatives = {}
+    for neg_pair in negative_pairs:
+        query = neg_pair['query']
+        if query not in query_to_negatives:
+            query_to_negatives[query] = []
+        query_to_negatives[query].append(neg_pair['document'])
+    
     print(f"Processing {max_pairs} pairs for weight training...")
     
     for pair in tqdm(selected_pairs, desc="Creating weight training data"):
         query = pair['query']
         pos_doc_text = pair['document']
         
-        # Find the document metadata (match by text)
-        pos_doc_metadata = None
-        for doc in documents:
-            if doc['text'] == pos_doc_text:
-                pos_doc_metadata = doc['metadata']
-                break
+
+        pos_doc_metadata = text_to_metadata.get(pos_doc_text)
         
         if pos_doc_metadata is None:
             continue
             
-        # Get negative examples (documents not relevant to this query)
-        neg_docs = random.sample(documents, 2)  # 2 negatives per positive
+        # Get curated negative examples for this specific query
+        neg_texts = query_to_negatives[query][:2]  # Take up to 2 negatives
+        neg_docs = []
+        for neg_text in neg_texts:
+            neg_metadata = text_to_metadata.get(neg_text)
+            if neg_metadata:
+                neg_docs.append({'text': neg_text, 'metadata': neg_metadata})
         
         # Process positive example
         try:

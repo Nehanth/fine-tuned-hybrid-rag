@@ -456,7 +456,6 @@ def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
             # Determine key insights from learned weights
             max_weight_idx = np.argmax(learned_weights)
             component_names = ["dense (semantic)", "sparse (TF-IDF)", "boost (metadata)"]
-            print(f"Key insight: {component_names[max_weight_idx]} has highest learned importance")
     
     # Summary
     print("\nSUMMARY")
