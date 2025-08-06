@@ -167,6 +167,11 @@ def hybrid_retrieve(query: str,
         
         print(f"{len(candidate_indices)} candidates after filtering")
     
+    # Handle case where filtering eliminates all candidates
+    if len(candidate_indices) == 0:
+        print("Warning: All candidates filtered out. Returning empty results.")
+        return []
+    
     # Step 4: Compute sparse similarities for candidates
     print("Computing sparse similarities...")
     candidate_texts = [components["documents"][i]["text"] for i in candidate_indices]

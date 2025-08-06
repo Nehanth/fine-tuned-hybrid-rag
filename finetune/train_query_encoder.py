@@ -137,7 +137,7 @@ def setup_loss_function(model: SentenceTransformer):
     Returns:
         Loss function for contrastive learning
     """
-    print("Setting up MultipleNegativesRankingLoss...")
+    print("Setting up MultipleNegativesRankingLoss...") #cross entropy loss function?
     
     # MultipleNegativesRankingLoss is ideal for query-document pairs
     loss = losses.MultipleNegativesRankingLoss(model)
@@ -250,4 +250,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

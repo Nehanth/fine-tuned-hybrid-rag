@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         "--num-queries",
         type=int,
-        default=100,
+        default=1000,
         help="Number of queries to evaluate (default: 100)"
     )
     parser.add_argument(
@@ -92,8 +92,12 @@ class HybridRetriever:
             
             # Convert to BEIR format: {doc_id: score}
             doc_scores = {}
-            for doc in retrieved_docs:
-                doc_scores[str(doc['doc_id'])] = doc['scores']['final_score']
+            if retrieved_docs:  # Handle empty results gracefully
+                for doc in retrieved_docs:
+                    doc_scores[str(doc['doc_id'])] = doc['scores']['final_score']
+            else:
+                # Empty results due to overly restrictive filters
+                print(f"No results for query {qid} due to restrictive filters")
             
             results[qid] = doc_scores
             
@@ -334,7 +338,7 @@ def print_scores(all_scores):
     return has_significant_difference
 
 
-def evaluate_hybrid_retrieval(num_queries=100, top_k=10):
+def evaluate_hybrid_retrieval(num_queries=5000, top_k=10):
     """Main evaluation function using BEIR methodology."""
     
     print("BEIR-Style Neural Hybrid Retrieval Evaluation")
