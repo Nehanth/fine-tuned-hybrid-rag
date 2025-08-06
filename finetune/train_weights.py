@@ -225,7 +225,7 @@ def create_contrastive_training_data():
             # Generate different filters for negative doc (realistic scenario)
             neg_filters = generate_realistic_filters(neg_doc['metadata'])
             neg_boost_raw = compute_boost(neg_doc['metadata'], neg_filters)
-            neg_boost = (neg_boost_raw - 1.0) / 0.5  # Normalize 1.0-1.5 → 0.0-1.0, # one hot encoding
+            neg_boost = (neg_boost_raw - 1.0) / 0.5  # Normalize 1.0-1.5 → 0.0-1.0
             
             positive_examples.append({
                 'query': query,
