@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         "--num-queries",
         type=int,
-        default=1000,
+        default=100,
         help="Number of queries to evaluate (default: 100)"
     )
     parser.add_argument(
@@ -107,12 +107,31 @@ class HybridRetriever:
 def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tuple:
     """Create realistic queries with metadata filters and relevance judgments."""
     
+    # Load training queries to avoid query leakage
+    training_queries = set()
+    training_pairs_path = "finetune/realistic_training_pairs.json"
+    
+    if os.path.exists(training_pairs_path):
+        print(f"Loading training pairs to prevent query leakage...")
+        with open(training_pairs_path, 'r', encoding='utf-8') as f:
+            training_data = json.load(f)
+        
+        for pair in training_data:
+            training_queries.add(pair['query'].lower().strip())
+        
+        print(f"Loaded {len(training_queries)} training queries for leakage prevention")
+    else:
+        print(f"Warning: Training pairs file not found at {training_pairs_path}")
+        print("Proceeding without leakage prevention...")
+    
     queries = {}
     qrels = {}
     user_filters_list = {}  # Store user filters for each query
     
-    # Sample documents to create queries from
-    sampled_indices = random.sample(range(len(documents)), min(num_queries, len(documents)))
+    # Sample documents randomly (no document filtering needed)
+    sampled_indices = random.sample(range(len(documents)), min(num_queries * 3, len(documents)))  # Sample extra to account for query filtering
+    
+    print(f"Sampled {len(sampled_indices)} documents for query generation")
     
     def generate_realistic_query(doc: Dict) -> str:
         """Generate a realistic query using the same logic as training data generation."""
@@ -143,11 +162,11 @@ def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
             keyword_queries = [q for q in unique_queries if not q.startswith(('what is', 'how does', 'research on'))]
             question_queries = [q for q in unique_queries if q.startswith(('what is', 'how does', 'research on'))]
             
-            # Balanced selection: 70% keywords, 30% questions (matches training)
-            if question_queries and random.random() < 0.3:
-                return random.choice(question_queries)
-            elif keyword_queries:
+            # Balanced selection: 30% keywords, 70% questions (question-heavy evaluation)
+            if keyword_queries and random.random() < 0.3:
                 return keyword_queries[0]
+            elif question_queries:
+                return random.choice(question_queries)
             else:
                 return unique_queries[0]
         
@@ -206,9 +225,16 @@ def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
         
         return filters
     
+    query_encounters = 0
+    queries_generated = 0
+    
     for i, doc_idx in enumerate(sampled_indices):
+        # Stop if we have enough queries
+        if len(queries) >= num_queries:
+            break
+            
         doc = documents[doc_idx]
-        qid = f"q{i}"
+        qid = f"q{queries_generated}"
         doc_id = str(doc_idx)
         
         # Skip if document doesn't have required fields
@@ -222,11 +248,18 @@ def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
         if len(query.strip()) < 3 or query == "research paper":
             continue
         
+        # Check for query leakage - skip if this query was used in training
+        normalized_query = query.lower().strip()
+        if normalized_query in training_queries:
+            query_encounters += 1
+            continue  # Skip this query to prevent leakage
+        
         # Generate user filters for this query
         user_filters = generate_user_filters(doc)
         
         queries[qid] = query
         user_filters_list[qid] = user_filters
+        queries_generated += 1
         
         # Create relevance judgments - the source document is relevant
         # But also find other potentially relevant documents based on similar topics
@@ -249,6 +282,17 @@ def create_realistic_qrels(documents: List[Dict], num_queries: int = 100) -> tup
                     if len(source_title_terms & other_title_terms) >= 1:  # At least 1 common term
                         qrels[qid][str(other_idx)] = 1  # Also relevant
                         similar_count += 1
+    
+    # Print query leakage prevention summary
+    print(f"\nQuery leakage prevention results:")
+    print(f"   Training queries encountered: {query_encounters}")
+    print(f"   Training queries excluded: {query_encounters}")
+    print(f"   Evaluation queries generated: {len(queries)}")
+    if query_encounters > 0:
+        print(f"   Query leakage prevention rate: {query_encounters}/{query_encounters + len(queries)} = {query_encounters/(query_encounters + len(queries))*100:.2f}% excluded")
+    else:
+        print(f"   Query leakage prevention rate: 0% (no duplicates found)")
+    print(f"Successfully generated {len(queries)} unique evaluation queries")
     
     return queries, qrels, user_filters_list
 
@@ -435,7 +479,7 @@ def evaluate_hybrid_retrieval(num_queries=5000, top_k=10):
     print()
     
     # Print results
-    print("NEURAL FUSION RESULTS")
+    print("New Model Results")
     print("=" * 30)
     
     if compare_models:
@@ -465,9 +509,9 @@ def evaluate_hybrid_retrieval(num_queries=5000, top_k=10):
     print("\nSUMMARY")
     print("-" * 20)
     if compare_models and has_significant_difference:
-        print("🎯 Neural fusion model shows significant performance improvement!")
+        print("New model shows significant performance improvement!")
     elif compare_models:
-        print("📊 Neural fusion model performance evaluation complete")
+        print("Model performance evaluation complete")
     else:
         # Single model results
         base_metrics = list(base_scores[list(base_scores.keys())[0]].keys())
