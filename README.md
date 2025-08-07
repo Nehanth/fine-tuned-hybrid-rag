@@ -14,6 +14,8 @@ This system implements a hybrid retrieval approach that:
 
 ## Architecture
 
+📋 **[Complete System Architecture Document](https://docs.google.com/document/d/1TUQkHgfJR4f9m89givpiM84BdhKX0_rcpNV_WIYBTL8/edit?usp=sharing)** - This is the overall architecture of this project with detailed technical specifications.
+
 The pipeline consists of six main stages:
 
 1. **Data Processing**: Downloads and processes academic papers from S2ORC dataset
